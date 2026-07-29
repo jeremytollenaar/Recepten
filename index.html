@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Landen receptenboek</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f7f3f0;
+      margin: 0;
+      padding: 2.5rem;
+      text-align: center;
+    }
+
+    .carousel {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .recipe {
+      display: none;
+      background: #fff;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      text-align: left;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .recipe.active {
+      display: block;
+      opacity: 1;
+    }
+
+    .nav-btn {
+      background: #ab7c7c;
+      color: #fff;
+      border: none;
+      padding: 0.7rem 1.2rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      margin: 1rem 0.5rem 0;
+    }
+
+    .copy-btn, .edit-btn, .delete-btn, .shop-btn, .trash-toggle-btn {
+      background: #ab7c7c;
+      color: #fff;
+      border: none;
+      padding: 0.6rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+      margin-right: 0.5rem;
+    }
+    .copy-btn:hover, .edit-btn:hover, .delete-btn:hover, .shop-btn:hover, .trash-toggle-btn:hover {
+      background: #8f6565;
+    }
+
+    .delete-btn {
+      background: #d9534f;
+    }
+    .delete-btn:hover {
+      background: #c9302c;
+    }
+
+    #search {
+      width: 300px;
+      padding: 0.6rem;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      margin-bottom: 1rem;
+      font-size: 1rem;
+    }
+
+    /* Alfabet navigatie styling */
+    .alphabet-nav {
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 4px;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .alphabet-btn {
+      background: #fff;
+      color: #ab7c7c;
+      border: 1px solid #ab7c7c;
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
+
+    .alphabet-btn:hover:not(:disabled) {
+      background: #ab7c7c;
+      color: #fff;
+    }
+
+    .alphabet-btn:disabled {
+      background: #e0e0e0;
+      color: #999;
+      border-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    /* Stappen kaders styling met strakke uitlijning */
+    .steps-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .step-frame {
+      background-color: #f9f7f5;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 1rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      border-bottom: 1px solid #eaded5;
+      padding-bottom: 0.4rem;
+    }
+
+    .step-number-kader {
+      font-weight: bold;
+      color: #ab7c7c;
+      margin-right: 0.8rem;
+      font-size: 1.1rem;
+    }
+
+    .step-title-display {
+      font-weight: bold;
+      color: #444;
+      font-size: 1.05rem;
+    }
+
+    .step-list {
+      margin: 0;
+      padding-left: 0;
+      list-style-position: inside;
+      color: #333;
+      line-height: 1.5;
+    }
+
+    .step-list li {
+      margin-bottom: 0.5rem;
+      text-align: left;
+      text-indent: -1.2rem;
+      padding-left: 1.2rem;
+    }
+
+    .top-actions {
+      margin-bottom: 1.5rem;
+    }
+
+    #toggleAdd {
+      background: #ab7c7c;
+      color: #fff;
+      border: none;
+      padding: 0.8rem 1.2rem;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background 0.2s;
+      margin-right: 0.5rem;
+    }
+    #toggleAdd:hover {
+      background: #8f6565;
+    }
+
+    /* Formulier + animatie */
+    #addForm {
+      max-width: 600px;
+      margin: 2rem auto;
+      background: #fff;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      text-align: left;
+      display: none;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    #addForm.show {
+      display: block;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    #addForm input, #addForm textarea {
+      width: 100%;
+      padding: 0.6rem;
+      margin-bottom: 1rem;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
+    }
+
+    .step-input-group {
+      background: #faf8f6;
+      border: 1px solid #ddd;
+      padding: 0.8rem;
+      border-radius: 8px;
+      margin-bottom: 0.8rem;
+      position: relative;
+    }
+
+    .step-input-group input {
+      margin-bottom: 0.5rem !important;
+    }
+
+    .step-input-group textarea {
+      margin-bottom: 0 !important;
+      resize: vertical;
+      height: 70px;
+    }
+
+    .remove-step-btn {
+      background: #d9534f;
+      color: #fff;
+      border: none;
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+    }
+
+    .add-step-btn {
+      background: #6c757d;
+      color: #fff;
+      border: none;
+      padding: 0.5rem 0.8rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+
+    #addForm button[onclick="saveRecipe()"] {
+      background: #ab7c7c;
+      color: #fff;
+      border: none;
+      padding: 0.7rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      display: block;
+      width: 100%;
+      margin-top: 1rem;
+    }
+
+    .counter {
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      color: #555;
+    }
+
+    /* Prullenbak modal / popup */
+    #trashModal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      width: 450px;
+      max-height: 80vh;
+      overflow-y: auto;
+      display: none;
+      text-align: left;
+      z-index: 1000;
+    }
+
+    #trashModal.show {
+      display: block;
+    }
+
+    .trash-item {
+      background: #f9f7f5;
+      border: 1px solid #ddd;
+      padding: 0.8rem;
+      border-radius: 8px;
+      margin-bottom: 0.8rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .trash-actions button {
+      padding: 0.3rem 0.6rem;
+      font-size: 0.8rem;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      margin-left: 0.3rem;
+    }
+
+    .restore-btn {
+      background: #5cb85c;
+      color: white;
+    }
+    .permanent-delete-btn {
+      background: #d9534f;
+      color: white;
+    }
+
+    /* Boodschappenlijst popup */
+    #shoppingListPopup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      width: 400px;
+      display: none;
+      text-align: left;
+      z-index: 1000;
+    }
+
+    #shoppingListPopup.show {
+      display: block;
+    }
+
+    #shoppingListPopup button {
+      margin-top: 1rem;
+      background: #ab7c7c;
+      color: white;
+      border: none;
+      padding: 0.6rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Landen recepten</h1>
+  <p>Scroll door je recepten met de knoppen of kies een letter.</p>
+
+  <input type="text" id="search" placeholder="Zoek een recept...">
+
+  <!-- Alfabet navigatiebalk -->
+  <div class="alphabet-nav" id="alphabetNav"></div>
+
+  <div class="top-actions">
+    <button id="toggleAdd" onclick="toggleForm()">Recept toevoegen</button>
+    <button class="trash-toggle-btn" onclick="toggleTrashModal()">🗑️ Prullenbak (<span id="trashCount">0</span>)</button>
+  </div>
+
+  <div id="addForm">
+    <h2 id="formTitle">Nieuw recept</h2>
+
+    <input type="text" id="newTitle" placeholder="Titel van recept">
+    <input type="text" id="newTime" placeholder="Bereidingstijd (bijv. 20 min)">
+    <input type="text" id="newDifficulty" placeholder="Moeilijkheid">
+
+    <textarea id="newIngredients" placeholder="Ingrediënten (één per regel)" rows="5"></textarea>
+    
+    <label><strong>Bereidingsstappen (typ gewoon je tekst per regel, geen streepjes nodig):</strong></label>
+    <div id="stepsInputContainer" style="margin-top: 0.5rem;"></div>
+    <button type="button" class="add-step-btn" onclick="addStepInput()">+ Stap toevoegen</button>
+
+    <button onclick="saveRecipe()">Opslaan</button>
+  </div>
+
+  <div class="carousel" id="carousel"></div>
+
+  <div>
+    <button id="prev" class="nav-btn">◀ Vorige</button>
+    <button id="next" class="nav-btn">Volgende ▶</button>
+    <div class="counter" id="counter"></div>
+  </div>
+
+  <!-- Prullenbak Modal -->
+  <div id="trashModal">
+    <h2>Prullenbak</h2>
+    <p style="font-size: 0.85rem; color: #666;">Verwijderde recepten blijven hier staan totdat je ze herstelt of wist.</p>
+    <div id="trashList" style="margin-top: 1rem;"></div>
+    <button onclick="toggleTrashModal()" style="margin-top: 1rem; background: #ab7c7c; color: white; border: none; padding: 0.6rem 1rem; border-radius: 8px; cursor: pointer;">Sluiten</button>
+  </div>
+
+  <!-- Boodschappenlijst popup -->
+  <div id="shoppingListPopup">
+    <h2>Boodschappenlijst</h2>
+    <ul id="shoppingList"></ul>
+    <button onclick="closeShoppingList()">Sluiten</button>
+  </div>
+
+  <script>
+    // VASTE RECEPTENLIJST (deze reizen altijd mee als je het HTML-bestand kopieert!)
+    const defaultRecipes = [
+      {
+        title: "Spaghetti Aglio e Olio",
+        time: "15 min",
+        difficulty: "makkelijk",
+        ingredients: [
+          "200 g spaghetti",
+          "3 teentjes knoflook",
+          "Olijfolie, peper, zout",
+          "Chilivlokken, peterselie"
+        ],
+        steps: [
+          { 
+            title: "Voorbereiding", 
+            lines: [
+              "Kook de spaghetti al dente in een grote pan met gezouten water.",
+              "Snipper de knoflook fijn en snijd de rode peper in dunne ringetjes."
+            ] 
+          },
+          { 
+            title: "Bakken en serveren", 
+            lines: [
+              "Verwarm de olijfolie op laag vuur en voeg knoflook en chilipeper toe tot het goudbruin kleurt.",
+              "Voeg de uitgelekte spaghetti en een scheutje kookwater toe aan de pan.",
+              "Breng op smaak met zout en peper, roer de peterselie erdoor en serveer direct."
+            ] 
+          }
+        ]
+      }
+    ];
+
+    let recipes = [];
+    let trash = [];
+
+    // We laden de recepten. Als er ooit eerder iets is opgeslagen op dit apparaat gebruiken we dat, 
+    // zo niet dan vallen we terug op de vaste basisrecepten.
+    try {
+      const savedRecipes = localStorage.getItem("recipes");
+      recipes = savedRecipes ? JSON.parse(savedRecipes) : defaultRecipes;
+      trash = JSON.parse(localStorage.getItem("trash")) || [];
+    } catch (e) {
+      recipes = defaultRecipes;
+      trash = [];
+    }
+
+    let index = 0;
+    let isEditing = false;
+    let editIndex = null;
+
+    function toggleForm() {
+      const form = document.getElementById("addForm");
+
+      if (form.classList.contains("show")) {
+        form.classList.remove("show");
+        return;
+      }
+
+      isEditing = false;
+      editIndex = null;
+
+      document.getElementById("formTitle").innerText = "Nieuw recept";
+
+      document.getElementById("newTitle").value = "";
+      document.getElementById("newTime").value = "";
+      document.getElementById("newDifficulty").value = "";
+      document.getElementById("newIngredients").value = "";
+      
+      document.getElementById("stepsInputContainer").innerHTML = "";
+      addStepInput("", "");
+
+      form.classList.add("show");
+    }
+
+    function addStepInput(title = "", linesText = "") {
+      const container = document.getElementById("stepsInputContainer");
+      const group = document.createElement("div");
+      group.className = "step-input-group";
+      group.innerHTML = `
+        <input type="text" class="step-title-input" placeholder="Titel van de stap (bijv. Voorbereiding)" value="${title}">
+        <textarea class="step-lines-input" placeholder="Elke regel wordt een losse bullet (typ geen streepje)...">${linesText}</textarea>
+        <button type="button" class="remove-step-btn" onclick="this.parentElement.remove()">Verwijder stap</button>
+      `;
+      container.appendChild(group);
+    }
+
+    function renderAlphabetNav() {
+      const navContainer = document.getElementById("alphabetNav");
+      navContainer.innerHTML = "";
+
+      const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+      alphabet.forEach(letter => {
+        const btn = document.createElement("button");
+        btn.className = "alphabet-btn";
+        btn.textContent = letter;
+
+        const hasRecipe = recipes.some(r => r.title && r.title.toUpperCase().startsWith(letter));
+
+        if (!hasRecipe) {
+          btn.disabled = true;
+        } else {
+          btn.onclick = () => {
+            const foundIndex = recipes.findIndex(r => r.title && r.title.toUpperCase().startsWith(letter));
+            if (foundIndex !== -1) {
+              index = foundIndex;
+              renderRecipes();
+            }
+          };
+        }
+
+        navContainer.appendChild(btn);
+      });
+    }
+
+    function renderRecipes() {
+      const carousel = document.getElementById("carousel");
+      const counter = document.getElementById("counter");
+      carousel.innerHTML = "";
+
+      document.getElementById("trashCount").textContent = trash.length;
+
+      if (recipes.length === 0) {
+        carousel.innerHTML = "<p>Geen recepten gevonden.</p>";
+        counter.textContent = "Recept 0 van 0";
+        renderAlphabetNav();
+        return;
+      }
+
+      if (index >= recipes.length) index = recipes.length - 1;
+      if (index < 0) index = 0;
+
+      recipes.forEach((r, i) => {
+        const article = document.createElement("article");
+        article.className = "recipe" + (i === index ? " active" : "");
+
+        let stepsHtml = "";
+        if (r.steps && Array.isArray(r.steps)) {
+          stepsHtml = r.steps.map((s, idx) => {
+            const lines = s.lines || [];
+            const linesHtml = lines.map(line => `<li>${line.replace(/^-\s*/, '')}</li>`).join("");
+            return `
+              <div class="step-frame">
+                <div class="step-header">
+                  <span class="step-number-kader">${idx + 1}.</span>
+                  <span class="step-title-display">${s.title || 'Stap'}</span>
+                </div>
+                <ul class="step-list">
+                  ${linesHtml}
+                </ul>
+              </div>
+            `;
+          }).join("");
+        }
+
+        const ingredientsHtml = (r.ingredients || []).map(x => `<li>${x}</li>`).join("");
+
+        article.innerHTML = `
+          <h2>${r.title || 'Naamloos'}</h2>
+          <p><strong>Tijd:</strong> ${r.time || '-'} · <strong>Moeilijkheid:</strong> ${r.difficulty || '-'}</p>
+
+          <h3>Ingrediënten</h3>
+          <ul>${ingredientsHtml}</ul>
+
+          <button class="copy-btn" onclick="copyIngredients(this)">Ingrediënten kopiëren</button>
+          <button class="shop-btn" onclick="generateShoppingList(${i})">Boodschappenlijst</button>
+          <button class="edit-btn" onclick="openEditForm(${i})">Aanpassen</button>
+          <button class="delete-btn" onclick="deleteRecipe(${i})">Verwijderen</button>
+
+          <h3>Bereiding</h3>
+          <div class="steps-container">
+            ${stepsHtml}
+          </div>
+        `;
+
+        carousel.appendChild(article);
+      });
+
+      counter.textContent = `Recept ${index + 1} van ${recipes.length}`;
+      renderAlphabetNav();
+    }
+
+    function openEditForm(i) {
+      isEditing = true;
+      editIndex = i;
+      const r = recipes[i];
+
+      document.getElementById("formTitle").innerText = "Recept aanpassen";
+
+      document.getElementById("newTitle").value = r.title || "";
+      document.getElementById("newTime").value = r.time || "";
+      document.getElementById("newDifficulty").value = r.difficulty || "";
+      document.getElementById("newIngredients").value = (r.ingredients || []).join("\n");
+
+      const stepsContainer = document.getElementById("stepsInputContainer");
+      stepsContainer.innerHTML = "";
+      
+      if (r.steps && Array.isArray(r.steps)) {
+        r.steps.forEach(step => {
+          let linesStr = "";
+          if (step.lines) {
+            linesStr = step.lines.map(l => l.replace(/^-\s*/, '')).join("\n");
+          }
+          addStepInput(step.title || "", linesStr);
+        });
+      } else {
+        addStepInput("", "");
+      }
+
+      document.getElementById("addForm").classList.add("show");
+    }
+
+    function saveRecipe() {
+      const title = document.getElementById("newTitle").value.trim();
+      const time = document.getElementById("newTime").value.trim();
+      const difficulty = document.getElementById("newDifficulty").value.trim();
+      const ingredients = document.getElementById("newIngredients").value.split("\n").map(x => x.trim()).filter(x => x);
+      
+      const stepGroups = document.querySelectorAll(".step-input-group");
+      const steps = [];
+
+      stepGroups.forEach(group => {
+        const stepTitle = group.querySelector(".step-title-input").value.trim();
+        const linesText = group.querySelector(".step-lines-input").value;
+        const lines = linesText.split("\n").map(x => x.trim().replace(/^-\s*/, '')).filter(x => x);
+
+        if (stepTitle || lines.length > 0) {
+          steps.push({ title: stepTitle || "Stap", lines: lines });
+        }
+      });
+
+      if (!title || !time || !difficulty || ingredients.length === 0 || steps.length === 0) {
+        alert("Vul alle hoofdvelden in en zorg voor ten minste één geldige stap met inhoud.");
+        return;
+      }
+
+      if (!isEditing) {
+        recipes.push({ title, time, difficulty, ingredients, steps });
+        index = recipes.length - 1;
+        alert("Recept toegevoegd!");
+      } else {
+        const r = recipes[editIndex];
+        r.title = title;
+        r.time = time;
+        r.difficulty = difficulty;
+        r.ingredients = ingredients;
+        r.steps = steps;
+        index = editIndex;
+        alert("Recept aangepast!");
+      }
+
+      localStorage.setItem("recipes", JSON.stringify(recipes));
+      document.getElementById("addForm").classList.remove("show");
+      renderRecipes();
+    }
+
+    function deleteRecipe(i) {
+      const removed = recipes.splice(i, 1)[0];
+      trash.push(removed);
+
+      if (index >= recipes.length) index = recipes.length - 1;
+      if (index < 0) index = 0;
+
+      localStorage.setItem("recipes", JSON.stringify(recipes));
+      localStorage.setItem("trash", JSON.stringify(trash));
+      renderRecipes();
+    }
+
+    function toggleTrashModal() {
+      const modal = document.getElementById("trashModal");
+      const listContainer = document.getElementById("trashList");
+
+      if (!modal.classList.contains("show")) {
+        if (trash.length === 0) {
+          listContainer.innerHTML = "<p>De prullenbak is leeg.</p>";
+        } else {
+          listContainer.innerHTML = trash.map((item, idx) => `
+            <div class="trash-item">
+              <span><strong>${item.title || 'Naamloos'}</strong></span>
+              <div class="trash-actions">
+                <button class="restore-btn" onclick="restoreRecipe(${idx})">Herstel</button>
+                <button class="permanent-delete-btn" onclick="permanentDelete(${idx})">Wis definitief</button>
+              </div>
+            </div>
+          `).join("");
+        }
+      }
+
+      modal.classList.toggle("show");
+    }
+
+    function restoreRecipe(idx) {
+      const restored = trash.splice(idx, 1)[0];
+      recipes.push(restored);
+
+      localStorage.setItem("recipes", JSON.stringify(recipes));
+      localStorage.setItem("trash", JSON.stringify(trash));
+      
+      toggleTrashModal();
+      renderRecipes();
+      alert("Recept is hersteld!");
+    }
+
+    function permanentDelete(idx) {
+      if (!confirm("Weet je zeker dat je dit recept definitief wilt wissen? Dit kan niet ongedaan worden gemaakt.")) return;
+      
+      trash.splice(idx, 1);
+      localStorage.setItem("trash", JSON.stringify(trash));
+      
+      toggleTrashModal();
+      renderRecipes();
+    }
+
+    function copyIngredients(btn) {
+      const recipe = btn.closest(".recipe");
+      const items = [...recipe.querySelectorAll("ul li")].map(li => "- " + li.innerText);
+      navigator.clipboard.writeText(items.join("\n")).then(() => {
+        alert("Ingrediënten gekopieerd!");
+      });
+    }
+
+    document.getElementById("next").onclick = () => {
+      if (recipes.length === 0) return;
+      index = (index + 1) % recipes.length;
+      renderRecipes();
+    };
+
+    document.getElementById("prev").onclick = () => {
+      if (recipes.length === 0) return;
+      index = (index - 1 + recipes.length) % recipes.length;
+      renderRecipes();
+    };
+
+    document.getElementById("search").addEventListener("input", function() {
+      const term = this.value.toLowerCase().trim();
+      if (!term) {
+        index = 0;
+        renderRecipes();
+        return;
+      }
+
+      const foundIndex = recipes.findIndex(r => {
+        const stepsText = (r.steps || []).map(s => (s.title || "") + " " + (s.lines || []).join(" ")).join(" ");
+        const fullText = (r.title || "") + " " + (r.time || "") + " " + (r.difficulty || "") + " " +
+                         (r.ingredients || []).join(" ") + " " + stepsText;
+        return fullText.toLowerCase().includes(term);
+      });
+
+      if (foundIndex !== -1) {
+        index = foundIndex;
+        renderRecipes();
+      }
+    });
+
+    function generateShoppingList(i) {
+      const popup = document.getElementById("shoppingListPopup");
+      const list = document.getElementById("shoppingList");
+
+      const ingredients = recipes[i].ingredients || [];
+      list.innerHTML = ingredients.map(x => `<li>${x}</li>`).join("");
+
+      popup.classList.add("show");
+    }
+
+    function closeShoppingList() {
+      document.getElementById("shoppingListPopup").classList.remove("show");
+    }
+
+    renderRecipes();
+  </script>
+
+</body>
+</html>
