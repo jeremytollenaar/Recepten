@@ -118,7 +118,11 @@
   </div>
 
   <script>
-    const db = supabase.createClient('https://tnwdxmzvrmfwpwhcmkto.supabase.co', 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX');
+    // --- VERVANG HIERONDER JOUW SUPABASE URL EN ANON KEY ---
+    const supabaseUrl = 'JOUW_SUPABASE_PROJECT_URL';
+    const supabaseKey = 'JOUW_SUPABASE_ANON_KEY';
+    const db = supabase.createClient(supabaseUrl, supabaseKey);
+
     let recipes = [];
     let trashRecipes = JSON.parse(localStorage.getItem('myTrashRecipes') || '[]');
     let shoppingList = JSON.parse(localStorage.getItem('myShoplist') || '[]');
@@ -133,7 +137,10 @@
 
     async function fetchRecipes() {
       const { data, error } = await db.from('recepten').select('*');
-      if (error) { console.error(error); return; }
+      if (error) { 
+        console.error("Fout bij ophalen:", error); 
+        return; 
+      }
       recipes = data || [];
 
       document.getElementById("toggleTrash").textContent = `🗑️ Prullenbak (${trashRecipes.length})`;
@@ -463,11 +470,9 @@
       const recipeToMove = recipes.find(r => r.id === id);
       if (!recipeToMove) return;
 
-      // Voeg toe aan lokale prullenbak
       trashRecipes.push(recipeToMove);
       localStorage.setItem('myTrashRecipes', JSON.stringify(trashRecipes));
 
-      // Verwijder uit Supabase
       const { error: deleteError } = await db.from('recepten').delete().eq('id', id);
       if (deleteError) {
         alert("Fout bij opschonen: " + deleteError.message);
@@ -481,7 +486,7 @@
       const recipeToRestore = trashRecipes[localIdx];
       if (!recipeToRestore) return;
 
-      delete recipeToRestore.id; // Zorg dat Supabase een nieuw ID aanmaakt bij terugzetten
+      delete recipeToRestore.id;
 
       const { error: insertError } = await db.from('recepten').insert([recipeToRestore]);
       if (insertError) {
@@ -489,7 +494,6 @@
         return;
       }
 
-      // Verwijder uit lokale prullenbak
       trashRecipes.splice(localIdx, 1);
       localStorage.setItem('myTrashRecipes', JSON.stringify(trashRecipes));
 
