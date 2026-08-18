@@ -3,6 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <title>Landen receptenboek</title>
+  <!-- PWA Manifestkoppeling -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ab7c7c">
+  
+  <!-- Supabase Client Library met cache-buster -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2?v=3"></script>
   <style>
     body {
@@ -654,7 +659,6 @@
 
       if (!confirm(`Weet je zeker dat je "${recipeToMove.titel}" naar de prullenbak wilt verplaatsen?`)) return;
 
-      // 1. Voeg toe aan prullenbak tabel
       const { error: insertError } = await db.from('prullenbak').insert([{
         origineel_id: recipeToMove.id,
         titel: recipeToMove.titel,
@@ -669,7 +673,6 @@
         return;
       }
 
-      // 2. Verwijder uit actieve recepten tabel
       const { error: deleteError } = await db.from('recepten').delete().eq('id', id);
 
       if (deleteError) {
@@ -684,7 +687,6 @@
       const itemToRestore = trashRecipes.find(t => t.id === trashId);
       if (!itemToRestore) return;
 
-      // 1. Zet terug in recepten tabel (zonder de prullenbak ID)
       const { error: insertError } = await db.from('recepten').insert([{
         titel: itemToRestore.titel,
         tijd: itemToRestore.tijd,
@@ -698,7 +700,6 @@
         return;
       }
 
-      // 2. Verwijder uit prullenbak tabel
       const { error: deleteError } = await db.from('prullenbak').delete().eq('id', trashId);
 
       if (deleteError) {
