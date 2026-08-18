@@ -43,8 +43,9 @@
     .step-list { margin: 0; padding-left: 1.2rem; color: #ccc; line-height: 1.5; }
 
     /* Knoppen & Formulier */
-    .nav-btn, .save-recipe-btn, .add-step-btn, .remove-step-btn, .restore-btn, .timer-btn, #toggleAdd, #toggleTrash, #toggleShoplist { background: #ab7c7c; color: #fff; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; margin: 5px; }
+    .nav-btn, .save-recipe-btn, .add-step-btn, .remove-step-btn, .restore-btn, .timer-btn, .edit-btn, #toggleAdd, #toggleTrash, #toggleShoplist { background: #ab7c7c; color: #fff; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; margin: 5px; }
     .timer-btn { background: #4a7c59; padding: 4px 8px; font-size: 0.8rem; margin-left: 8px; }
+    .edit-btn { background: #f0ad4e; }
     .remove-step-btn { background: #d9534f; }
     .restore-btn { background: #5cb85c; }
     
@@ -75,7 +76,7 @@
   <div class="alphabet-nav" id="alphabetNav"></div>
 
   <div style="margin-bottom: 1.5rem;">
-    <button id="toggleAdd" onclick="toggleForm()">+ Recept toevoegen</button>
+    <button id="toggleAdd" onclick="openAddForm()">+ Recept toevoegen</button>
     <button id="toggleShoplist" onclick="toggleShoplistView()">🛒 Boodschappenlijst (0)</button>
     <button id="toggleTrash" onclick="toggleTrashView()">🗑️ Prullenbak (0)</button>
   </div>
@@ -89,9 +90,10 @@
     <button class="remove-step-btn" onclick="clearShoplist()" style="width:100%">Lijst leegmaken</button>
   </div>
 
-  <!-- Formulier -->
+  <!-- Formulier (Toevoegen & Bewerken) -->
   <div id="addForm">
-    <h2>Nieuw recept</h2>
+    <h2 id="formTitle">Nieuw recept</h2>
+    <input type="hidden" id="editRecipeId" value="">
     <input type="text" id="newTitle" placeholder="Titel van recept">
     <input type="text" id="newCat" placeholder="Categorie (bijv. Pasta, Salade)" list="catList">
     <datalist id="catList"></datalist>
@@ -239,7 +241,6 @@
         if (r.moeilijkheid) metaInfo.push(`<strong>Moeilijkheid:</strong> ${r.moeilijkheid}`);
         let metaHtml = metaInfo.length > 0 ? `<p>${metaInfo.join(' &middot; ')}</p>` : '';
 
-        // Veilige array stringificatie voor boodschappenknop
         const safeIngredientsJSON = JSON.stringify(ingList).replace(/"/g, '&quot;');
 
         return `
@@ -251,7 +252,10 @@
             <button class="nav-btn" onclick='openShoplistModal("${safeIngredientsJSON}")' style="margin-top:10px; font-size:0.85rem; padding:6px 10px;">🛒 Voeg toe aan boodschappenlijst</button>
             <h3>Bereiding</h3>
             <div style="margin-top:10px;">${stepsHtml || '<p style="color:#aaa;">Geen stappen.</p>'}</div>
-            <button class="remove-step-btn" onclick="moveToTrash(${r.id})" style="margin-top: 20px;">Verwijderen</button>
+            <div style="margin-top: 20px; display: flex; gap: 10px;">
+              <button class="edit-btn" onclick="openEditForm(${r.id})">Bewerken</button>
+              <button class="remove-step-btn" onclick="moveToTrash(${r.id})">Verwijderen</button>
+            </div>
         </div>`;
       }).join("");
 
@@ -579,16 +583,66 @@
       container.appendChild(div);
     }
 
-    function toggleForm() {
+    function openAddForm() {
       const form = document.getElementById("addForm");
       if(inShoplistView) { inShoplistView = false; document.getElementById("shoplistView").classList.remove("show"); }
+      
+      // Reset formulier voor nieuw recept
+      document.getElementById("formTitle").textContent = "Nieuw recept";
+      document.getElementById("editRecipeId").value = "";
+      document.getElementById("newTitle").value = "";
+      document.getElementById("newCat").value = "";
+      document.getElementById("newTime").value = "";
+      document.getElementById("newDifficulty").value = "";
+      document.getElementById("newIngredients").value = "";
+      document.getElementById("stepsInputContainer").innerHTML = "";
+      
       form.classList.toggle("show");
-      if(form.classList.contains("show") && document.getElementById("stepsInputContainer").children.length === 0) {
+      if(form.classList.contains("show")) {
         addStepInput();
       }
     }
 
+    function openEditForm(id) {
+      const recipe = recipes.find(r => r.id === id);
+      if (!recipe) return;
+
+      if(inShoplistView) { inShoplistView = false; document.getElementById("shoplistView").classList.remove("show"); }
+
+      document.getElementById("formTitle").textContent = "Recept bewerken";
+      document.getElementById("editRecipeId").value = recipe.id;
+      document.getElementById("newTitle").value = recipe.titel || "";
+      document.getElementById("newCat").value = recipe.categorie || "";
+      document.getElementById("newTime").value = recipe.tijd || "";
+      document.getElementById("newDifficulty").value = recipe.moeilijkheid || "";
+
+      // Ingrediënten vullen
+      let ingList = parseIng(recipe.ingredienten);
+      document.getElementById("newIngredients").value = ingList.join("\n");
+
+      // Stappen vullen
+      const container = document.getElementById("stepsInputContainer");
+      container.innerHTML = "";
+      
+      let bList = [];
+      try {
+        bList = typeof recipe.bereiding === 'string' ? JSON.parse(recipe.bereiding) : recipe.bereiding;
+      } catch(e) { bList = []; }
+
+      if (Array.isArray(bList) && bList.length > 0) {
+        bList.forEach(s => {
+          let linesStr = Array.isArray(s.lines) ? s.lines.join("\n") : (s.lines || "");
+          addStepInput(s.title || "", linesStr);
+        });
+      } else {
+        addStepInput();
+      }
+
+      document.getElementById("addForm").classList.add("show");
+    }
+
     async function saveRecipe() {
+      const editId = document.getElementById("editRecipeId").value;
       const titel = document.getElementById("newTitle").value.trim();
       const categorie = document.getElementById("newCat").value.trim() || "Overig";
       const tijd = document.getElementById("newTime").value.trim();
@@ -619,19 +673,22 @@
         bereiding: JSON.stringify(bereidingArray) 
       };
 
-      const { error } = await db.from('recepten').insert([payload]);
+      let error;
+      if (editId) {
+        // Update bestaand recept
+        const res = await db.from('recepten').update(payload).eq('id', editId);
+        error = res.error;
+      } else {
+        // Nieuw recept invoegen
+        const res = await db.from('recepten').insert([payload]);
+        error = res.error;
+      }
+
       if (error) { alert("Fout: " + error.message); return; }
 
-      alert("Recept succesvol opgeslagen!");
+      alert(editId ? "Recept succesvol bijgewerkt!" : "Recept succesvol opgeslagen!");
       
-      document.getElementById("newTitle").value = "";
-      document.getElementById("newCat").value = "";
-      document.getElementById("newTime").value = "";
-      document.getElementById("newDifficulty").value = "";
-      document.getElementById("newIngredients").value = "";
-      document.getElementById("stepsInputContainer").innerHTML = "";
       document.getElementById("addForm").classList.remove("show");
-      
       fetchRecipes();
     }
 
