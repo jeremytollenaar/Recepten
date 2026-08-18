@@ -123,11 +123,6 @@
   </div>
 
   <script>
-    // --- VERVANG HIERONDER JOUW SUPABASE URL EN ANON KEY ---
-    const supabaseUrl = 'JOUW_SUPABASE_PROJECT_URL';
-    const supabaseKey = 'JOUW_SUPABASE_ANON_KEY';
-    const db = supabase.createClient(supabaseUrl, supabaseKey);
-
     let recipes = [];
     let trashRecipes = JSON.parse(localStorage.getItem('myTrashRecipes') || '[]');
     let shoppingList = JSON.parse(localStorage.getItem('myShoplist') || '[]');
@@ -141,6 +136,11 @@
     let timeLeft = 0;
     let isPaused = false;
     let currentRecipeName = "";
+
+    // Supabase Configuratie
+    const supabaseUrl = 'https://tnwdxmzvrmfwpwhcmkto.supabase.co';
+    const supabaseKey = 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX';
+    const db = supabase.createClient(supabaseUrl, supabaseKey);
 
     async function fetchRecipes() {
       const { data, error } = await db.from('recepten').select('*');
