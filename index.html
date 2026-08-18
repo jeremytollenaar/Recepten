@@ -7,28 +7,188 @@
     <!-- Supabase Client Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f4f4f9; }
-        .card { background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        input, textarea { width: 100%; margin-bottom: 10px; padding: 8px; box-sizing: border-box; }
-        button { width: 100%; padding: 10px; background: #d9534f; color: white; border: none; border-radius: 5px; cursor: pointer; }
-        button:hover { background: #c9302c; }
+        :root {
+            --primary: #e06d53;
+            --primary-hover: #c85a40;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-main: #2d3748;
+            --text-muted: #718096;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--text-main);
+            margin-bottom: 30px;
+            font-size: 2.2rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border);
+        }
+
+        .card h3 {
+            margin-top: 0;
+            color: var(--primary);
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 1rem;
+            box-sizing: border-box;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(224, 109, 83, 0.15);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            margin-top: 5px;
+        }
+
+        button:hover {
+            background: var(--primary-hover);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        /* Recepten lijst styling */
+        .recipe-card {
+            background: var(--card-bg);
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+            border: 1px solid var(--border);
+            border-left: 5px solid var(--primary);
+        }
+
+        .recipe-card h2 {
+            margin-top: 0;
+            margin-bottom: 8px;
+            font-size: 1.5rem;
+            color: var(--text-main);
+        }
+
+        .recipe-meta {
+            display: inline-block;
+            background: #edf2f7;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+
+        .recipe-section-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-top: 15px;
+            margin-bottom: 5px;
+            letter-spacing: 0.5px;
+        }
+
+        .recipe-content {
+            white-space: pre-line;
+            color: #4a5568;
+        }
+
+        .loading, .empty-state {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 20px;
+        }
     </style>
 </head>
 <body>
 
-    <h1>Mijn Kookboek</h1>
+    <h1>Mijn Kookboek 🍳</h1>
 
     <!-- Formulier om recepten toe te voegen -->
     <div class="card">
         <h3>Nieuw recept toevoegen</h3>
-        <input type="text" id="titel" placeholder="Titel van het recept">
-        <input type="text" id="personen" placeholder="Aantal personen">
-        <textarea id="ingredienten" placeholder="Ingrediënten"></textarea>
-        <textarea id="bereiding" placeholder="Bereidingswijze"></textarea>
+        <div class="form-group">
+            <label for="titel">Titel</label>
+            <input type="text" id="titel" placeholder="Bijv. Bosnische Ćufte">
+        </div>
+        <div class="form-group">
+            <label for="personen">Aantal personen</label>
+            <input type="text" id="personen" placeholder="Bijv. 4 personen">
+        </div>
+        <div class="form-group">
+            <label for="ingredienten">Ingrediënten</label>
+            <textarea id="ingredienten" placeholder="Elke ingrediënt op een nieuwe regel..."></textarea>
+        </div>
+        <div class="form-group">
+            <label for="bereiding">Bereidingswijze</label>
+            <textarea id="bereiding" placeholder="Stappenplan van de bereiding..."></textarea>
+        </div>
         <button onclick="saveRecipe()">Recept Opslaan</button>
     </div>
 
-    <div id="recipe-list"></div>
+    <h2 style="font-size: 1.5rem; margin-top: 30px; margin-bottom: 15px;">Opgeslagen Recepten</h2>
+    <div id="recipe-list">
+        <div class="loading">Recepten ophalen...</div>
+    </div>
 
     <script>
         const SUPABASE_URL = 'https://tnwdxmzvrmfwpwhcmkto.supabase.co';
@@ -37,17 +197,17 @@
         const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         async function saveRecipe() {
-            const titel = document.getElementById('titel').value;
-            const personen = document.getElementById('personen').value;
-            const ingredienten = document.getElementById('ingredienten').value;
-            const bereiding = document.getElementById('bereiding').value;
+            const titel = document.getElementById('titel').value.trim();
+            const personen = document.getElementById('personen').value.trim();
+            const ingredienten = document.getElementById('ingredienten').value.trim();
+            const bereiding = document.getElementById('bereiding').value.trim();
 
             if (!titel) {
                 alert('Vul in ieder geval een titel in!');
                 return;
             }
 
-            const { data, error } = await db.from('recepten').insert([
+            const { error } = await db.from('recepten').insert([
                 { titel, personen, ingredienten, bereiding }
             ]);
 
@@ -67,21 +227,30 @@
             
             if (error) {
                 console.error('Fout bij ophalen:', error.message);
+                list.innerHTML = '<div class="empty-state">Kon recepten niet laden.</div>';
                 return;
             }
 
             if (data && data.length > 0) {
                 data.forEach(r => {
                     list.innerHTML += `
-                        <div class="card">
+                        <div class="recipe-card">
                             <h2>${r.titel}</h2>
-                            <p><strong>Voor:</strong> ${r.personen || '-'} personen</p>
-                            <p><strong>Ingrediënten:</strong><br>${r.ingredienten ? r.ingredienten.replace(/\n/g, '<br>') : ''}</p>
-                            <p><strong>Bereiding:</strong><br>${r.bereiding ? r.bereiding.replace(/\n/g, '<br>') : ''}</p>
+                            ${r.personen ? `<div class="recipe-meta">🍽️ Voor ${r.personen}</div>` : ''}
+                            
+                            ${r.ingredienten ? `
+                                <div class="recipe-section-title">Ingrediënten</div>
+                                <div class="recipe-content">${r.ingredienten}</div>
+                            ` : ''}
+                            
+                            ${r.bereiding ? `
+                                <div class="recipe-section-title">Bereiding</div>
+                                <div class="recipe-content">${r.bereiding}</div>
+                            ` : ''}
                         </div>`;
                 });
             } else {
-                list.innerHTML = '<p>Nog geen recepten gevonden in de database.</p>';
+                list.innerHTML = '<div class="empty-state">Nog geen recepten gevonden in de database. Voeg er hierboven eentje toe!</div>';
             }
         }
 
