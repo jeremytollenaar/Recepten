@@ -10,6 +10,8 @@
         :root {
             --primary: #e06d53;
             --primary-hover: #c85a40;
+            --danger: #e53e3e;
+            --danger-hover: #c53030;
             --bg-color: #f8f9fa;
             --card-bg: #ffffff;
             --text-main: #2d3748;
@@ -30,7 +32,7 @@
         h1 {
             text-align: center;
             color: var(--text-main);
-            margin-bottom: 30px;
+            margin-bottom: 25px;
             font-size: 2.2rem;
         }
 
@@ -108,6 +110,24 @@
             transform: scale(0.98);
         }
 
+        .btn-danger {
+            background: var(--danger);
+            width: auto;
+            padding: 6px 12px;
+            font-size: 0.85rem;
+            margin-top: 15px;
+        }
+
+        .btn-danger:hover {
+            background: var(--danger-hover);
+        }
+
+        /* Zoekbalk styling */
+        .search-container {
+            margin-bottom: 20px;
+        }
+
+        /* Recepten kaart styling */
         .recipe-card {
             background: var(--card-bg);
             padding: 20px;
@@ -162,6 +182,7 @@
 
     <h1>Mijn Kookboek 🍳</h1>
 
+    <!-- Formulier om recepten toe te voegen -->
     <div class="card">
         <h3>Nieuw recept toevoegen</h3>
         <div class="form-group">
@@ -183,7 +204,12 @@
         <button onclick="saveRecipe()">Recept Opslaan</button>
     </div>
 
-    <h2 style="font-size: 1.5rem; margin-top: 30px; margin-bottom: 15px;">Opgeslagen Recepten</h2>
+    <!-- Zoekbalk -->
+    <div class="search-container">
+        <input type="text" id="searchInput" placeholder="🔍 Zoek op recept of ingrediënt..." onkeyup="filterRecipes()">
+    </div>
+
+    <h2 style="font-size: 1.5rem; margin-top: 20px; margin-bottom: 15px;">Opgeslagen Recepten</h2>
     <div id="recipe-list">
         <div class="loading">Recepten ophalen...</div>
     </div>
@@ -193,6 +219,7 @@
         const SUPABASE_KEY = 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX';
         
         const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        let allRecipes = [];
 
         async function saveRecipe() {
             const titel = document.getElementById('titel').value.trim();
@@ -218,19 +245,37 @@
             }
         }
 
+        async function deleteRecipe(id) {
+            if (!confirm('Weet je zeker dat je dit recept wilt verwijderen?')) return;
+
+            const { error } = await db.from('recepten').delete().eq('id', id);
+
+            if (error) {
+                alert('Fout bij verwijderen: ' + error.message);
+            } else {
+                fetchRecipes();
+            }
+        }
+
         async function fetchRecipes() {
             const { data, error } = await db.from('recepten').select('*');
-            const list = document.getElementById('recipe-list');
-            list.innerHTML = '';
             
             if (error) {
                 console.error('Fout bij ophalen:', error.message);
-                list.innerHTML = '<div class="empty-state">Kon recepten niet laden.</div>';
+                document.getElementById('recipe-list').innerHTML = '<div class="empty-state">Kon recepten niet laden.</div>';
                 return;
             }
 
-            if (data && data.length > 0) {
-                data.forEach(r => {
+            allRecipes = data || [];
+            displayRecipes(allRecipes);
+        }
+
+        function displayRecipes(recipes) {
+            const list = document.getElementById('recipe-list');
+            list.innerHTML = '';
+
+            if (recipes.length > 0) {
+                recipes.forEach(r => {
                     list.innerHTML += `
                         <div class="recipe-card">
                             <h2>${r.titel}</h2>
@@ -245,11 +290,22 @@
                                 <div class="recipe-section-title">Bereiding</div>
                                 <div class="recipe-content">${r.bereiding}</div>
                             ` : ''}
+
+                            <button class="btn-danger" onclick="deleteRecipe(${r.id})">🗑️ Verwijderen</button>
                         </div>`;
                 });
             } else {
-                list.innerHTML = '<div class="empty-state">Nog geen recepten gevonden in de database. Voeg er hierboven eentje toe!</div>';
+                list.innerHTML = '<div class="empty-state">Geen recepten gevonden.</div>';
             }
+        }
+
+        function filterRecipes() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = allRecipes.filter(r => 
+                (r.titel && r.titel.toLowerCase().includes(query)) || 
+                (r.ingredienten && r.ingredienten.toLowerCase().includes(query))
+            );
+            displayRecipes(filtered);
         }
 
         fetchRecipes();
