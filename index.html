@@ -83,13 +83,13 @@
   <!-- Boodschappenlijst Scherm -->
   <div id="shoplistView">
     <h2>Boodschappenlijst</h2>
-    <p style="font-size: 0.85rem; color: #aaa;">Vink aan wat je nodig hebt en zet op je lijst:</p>
-    <div id="shoplistIngredientsContainer" style="margin-bottom: 15px; max-height: 250px; overflow-y: auto;"></div>
+    <div id="shoplistIngredientsContainer" style="margin-bottom: 15px;"></div>
     <h3 style="margin-top: 1rem; color:#fff;">Jouw actieve lijst:</h3>
     <ul id="finalShoplist" class="step-list" style="margin-bottom: 15px;"></ul>
     <button class="remove-step-btn" onclick="clearShoplist()" style="width:100%">Lijst leegmaken</button>
   </div>
 
+  <!-- Formulier -->
   <div id="addForm">
     <h2>Nieuw recept</h2>
     <input type="text" id="newTitle" placeholder="Titel van recept">
@@ -138,7 +138,7 @@
       if (!trashError) {
         trashRecipes = trashData || [];
       } else {
-        console.warn("Kon prullenbak tabel niet laden:", trashError.message);
+        trashRecipes = [];
       }
 
       document.getElementById("toggleTrash").textContent = `🗑️ Prullenbak (${trashRecipes.length})`;
@@ -178,7 +178,6 @@
 
       let cats = [...new Set(recipes.map(r => r.categorie).filter(c => c && c.trim() !== ""))];
       if (cats.length === 0) cats = ["Overig"];
-      
       if (cats.includes("Overig")) {
         cats = cats.filter(c => c !== "Overig");
         cats.push("Overig");
@@ -186,7 +185,7 @@
 
       if (!cats.includes(huidigeCategorie)) huidigeCategorie = cats[0];
 
-      document.getElementById("catNav").innerHTML = cats.map(c => `
+      catNavElement.innerHTML = cats.map(c => `
         <div class="cat-pill ${huidigeCategorie === c ? 'active' : ''}">
           <button class="cat-btn" onclick="selectCategory('${c}')">${c}</button>
           ${c !== "Overig" ? `<button class="cat-del-btn" onclick="verwijderCategorie(event, '${c}')" title="Verwijder categorie">🗑️</button>` : ''}
@@ -200,26 +199,11 @@
         gefilterde = recipes.filter(r => {
           const titelMatch = r.titel && r.titel.toLowerCase().includes(searchTerm);
           const catMatch = r.categorie && r.categorie.toLowerCase().includes(searchTerm);
-          
           let ingString = "";
-          try {
-            let parsedIng = parseIng(r.ingredienten);
-            ingString = parsedIng.join(" ").toLowerCase();
-          } catch(e) {
-            ingString = (r.ingredienten || "").toLowerCase();
-          }
-          const ingMatch = ingString.includes(searchTerm);
-
+          try { ingString = parseIng(r.ingredienten).join(" ").toLowerCase(); } catch(e) { ingString = (r.ingredienten || "").toLowerCase(); }
           let stepString = "";
-          try {
-            let parsedSteps = parseStepsRaw(r.bereiding);
-            stepString = parsedSteps.join(" ").toLowerCase();
-          } catch(e) {
-            stepString = (r.bereiding || "").toLowerCase();
-          }
-          const stepMatch = stepString.includes(searchTerm);
-
-          return titelMatch || catMatch || ingMatch || stepMatch;
+          try { stepString = parseStepsRaw(r.bereiding).join(" ").toLowerCase(); } catch(e) { stepString = (r.bereiding || "").toLowerCase(); }
+          return titelMatch || catMatch || ingString.includes(searchTerm) || stepString.includes(searchTerm);
         });
       } else {
         gefilterde = recipes.filter(r => (r.categorie || "Overig") === huidigeCategorie);
@@ -246,17 +230,16 @@
         let metaInfo = [];
         if (r.categorie) metaInfo.push(`<strong>Categorie:</strong> ${r.categorie}`);
         
-        // Bereidingstijd inclusief timer knop indien er minuten in staan
         if (r.tijd) {
           let minutes = extractMinutes(r.tijd);
-          let timerBtnHtml = minutes > 0 ? `<button class="timer-btn" onclick="startTimer(${minutes}, '${r.titel}')">⏱️ Start (${minutes}m)</button>` : '';
+          let timerBtnHtml = minutes > 0 ? `<button class="timer-btn" onclick="startTimer(${minutes}, '${r.titel.replace(/'/g, "\\'")}')">⏱️ Start (${minutes}m)</button>` : '';
           metaInfo.push(`<strong>Tijd:</strong> ${r.tijd} ${timerBtnHtml}`);
         }
 
         if (r.moeilijkheid) metaInfo.push(`<strong>Moeilijkheid:</strong> ${r.moeilijkheid}`);
         let metaHtml = metaInfo.length > 0 ? `<p>${metaInfo.join(' &middot; ')}</p>` : '';
 
-        // Veilige string voor objectdoorgifte naar boodschappenlijst
+        // Veilige array stringificatie voor boodschappenknop
         const safeIngredientsJSON = JSON.stringify(ingList).replace(/"/g, '&quot;');
 
         return `
@@ -265,7 +248,7 @@
             ${metaHtml}
             <h3>Ingrediënten</h3>
             <ul class="step-list">${ingHtml || '<li>Geen ingrediënten.</li>'}</ul>
-            <button class="nav-btn" onclick='openShoplistModal(${safeIngredientsJSON})' style="margin-top:10px; font-size:0.85rem; padding:6px 10px;">🛒 Voeg toe aan boodschappenlijst</button>
+            <button class="nav-btn" onclick='openShoplistModal("${safeIngredientsJSON}")' style="margin-top:10px; font-size:0.85rem; padding:6px 10px;">🛒 Voeg toe aan boodschappenlijst</button>
             <h3>Bereiding</h3>
             <div style="margin-top:10px;">${stepsHtml || '<p style="color:#aaa;">Geen stappen.</p>'}</div>
             <button class="remove-step-btn" onclick="moveToTrash(${r.id})" style="margin-top: 20px;">Verwijderen</button>
@@ -306,12 +289,19 @@
       return !isNaN(pureNum) ? pureNum : 0;
     }
 
-    // Boodschappenlijst Selectie Modal / Scherm logica
-    function openShoplistModal(ingredientsArray) {
+    // Boodschappenlijst Functionaliteit
+    function openShoplistModal(encodedJson) {
       inShoplistView = true;
       document.getElementById("toggleShoplist").textContent = "← Terug naar recepten";
       document.getElementById("addForm").classList.remove("show");
       document.getElementById("shoplistView").classList.add("show");
+
+      let ingredientsArray = [];
+      try {
+        ingredientsArray = JSON.parse(encodedJson.replace(/&quot;/g, '"'));
+      } catch(e) {
+        ingredientsArray = [];
+      }
 
       const container = document.getElementById("shoplistIngredientsContainer");
       container.innerHTML = `<p style="font-weight:bold; color:#fff; margin-bottom:5px;">Selecteer de ingrediënten:</p>` + 
@@ -337,7 +327,7 @@
       localStorage.setItem('myShoplist', JSON.stringify(shoppingList));
       updateShoplistCount();
       alert("Toegevoegd aan je boodschappenlijst!");
-      toggleShoplistView(); // terug naar normaal overzicht
+      toggleShoplistView();
     }
 
     function renderShoplistUI() {
@@ -387,7 +377,7 @@
       inTrashView = !inTrashView;
       if (inShoplistView) inShoplistView = false;
       const btn = document.getElementById("toggleTrash");
-      btn.textContent = inTrashView ? "← Terug naar recepten" : `🗑️ Prullenbak (${trashRecipes.length})`;
+      btn.textContent = inShoplistView ? "← Terug naar recepten" : `🗑️ Prullenbak (${trashRecipes.length})`;
       index = 0;
       renderApp();
     }
@@ -404,7 +394,7 @@
         return;
       }
 
-      carousel.innerHTML = gefilterde.map((r, i) => {
+      carousel.innerHTML = gefilterde.map((r) => {
         let ingList = parseIng(r.ingredienten);
         let ingHtml = ingList.map(x => `<li>${x.replace(/["\[\]]/g, '')}</li>`).join("");
         let stepsHtml = parseSteps(r.bereiding);
@@ -655,7 +645,7 @@
 
     document.getElementById("prev").onclick = () => {
       const searchTerm = document.getElementById("search").value.toLowerCase().trim();
-      let gefilterde = searchTerm ? recipes.filter(r => (r.titel && r.titel.toLowerCase().includes(searchTerm)) || (r.categorie && r.categorie.toLowerCase().includes(searchTerm))) : recipes.filter(r => (r.titel && r.titel.toLowerCase().includes(searchTerm)));
+      let gefilterde = searchTerm ? recipes.filter(r => (r.titel && r.titel.toLowerCase().includes(searchTerm)) || (r.categorie && r.categorie.toLowerCase().includes(searchTerm))) : recipes.filter(r => (r.categorie || "Overig") === huidigeCategorie);
       if (gefilterde.length === 0) return;
       index = (index - 1 + gefilterde.length) % gefilterde.length;
       renderApp();
