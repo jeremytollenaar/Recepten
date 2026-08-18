@@ -31,29 +31,33 @@
     <div id="recipe-list"></div>
 
     <script>
-        // Supabase Configuratie
         const SUPABASE_URL = 'https://tnwdxmzvrmfwpwhcmkto.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX';
         
-        // Verbinding initialiseren
         const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         async function saveRecipe() {
-            const titel = document.getElementById('titel').value;
-            const personen = document.getElementById('personen').value;
-            const ingredienten = document.getElementById('ingredienten').value;
-            const bereiding = document.getElementById('bereiding').value;
+            const titelVal = document.getElementById('titel').value;
+            const personenVal = document.getElementById('personen').value;
+            const ingredientenVal = document.getElementById('ingredienten').value;
+            const bereidingVal = document.getElementById('bereiding').value;
 
-            if (!titel) {
+            if (!titelVal) {
                 alert('Vul in ieder geval een titel in!');
                 return;
             }
 
             const { data, error } = await db.from('recepten').insert([
-                { titel, personen, ingredienten, bereiding }
+                { 
+                    titel: titelVal, 
+                    personen: personenVal, 
+                    ingredienten: ingredientenVal, 
+                    bereiding: bereidingVal 
+                }
             ]);
 
             if (error) {
+                console.error('Supabase error:', error);
                 alert('Fout bij opslaan: ' + error.message);
             } else {
                 alert('Opgeslagen!');
@@ -62,7 +66,7 @@
         }
 
         async function fetchRecipes() {
-            const { data, error } = await db.from('recepten').select('*').order('created_at', { ascending: false });
+            const { data, error } = await db.from('recepten').select('*');
             const list = document.getElementById('recipe-list');
             list.innerHTML = '';
             
@@ -71,16 +75,18 @@
                 return;
             }
 
-            if (data) {
+            if (data && data.length > 0) {
                 data.forEach(r => {
                     list.innerHTML += `
                         <div class="card">
                             <h2>${r.titel}</h2>
-                            <p><strong>Voor:</strong> ${r.personen ? r.personen : 'Onbekend'} personen</p>
+                            <p><strong>Voor:</strong> ${r.personen || '-'} personen</p>
                             <p><strong>Ingrediënten:</strong><br>${r.ingredienten ? r.ingredienten.replace(/\n/g, '<br>') : ''}</p>
                             <p><strong>Bereiding:</strong><br>${r.bereiding ? r.bereiding.replace(/\n/g, '<br>') : ''}</p>
                         </div>`;
                 });
+            } else {
+                list.innerHTML = '<p>Nog geen recepten gevonden in de database.</p>';
             }
         }
 
