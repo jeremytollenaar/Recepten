@@ -113,7 +113,6 @@
   </div>
 
   <script>
-    // --- 1. GLOBALE VARIABELEN EN SUPABASE CONFIGURATIE (ALTIJD BOVENAAN) ---
     let recipes = [];
     let trashRecipes = JSON.parse(localStorage.getItem('myTrashRecipes') || '[]');
     let shoppingList = JSON.parse(localStorage.getItem('myShoplist') || '[]');
@@ -130,37 +129,26 @@
     const supabaseUrl = 'https://tnwdxmzvrmfwpwhcmkto.supabase.co';
     const supabaseKey = 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX';
     
-    // Controleer of supabase correct is geladen om fouten te voorkomen
     let db = null;
     try {
-      if (window.supabase && typeof window.supabase.createClient === 'function') {
-        db = window.supabase.createClient(supabaseUrl, supabaseKey);
-      } else {
-        console.error("Supabase bibliotheek niet correct geladen.");
-      }
+      db = window.supabase.createClient(supabaseUrl, supabaseKey);
     } catch (err) {
-      console.error("Fout bij initialiseren Supabase client:", err);
+      console.error("Supabase init fout:", err);
     }
 
-    // --- 2. DATA OPHALEN ---
     async function fetchRecipes() {
-      if (!db) {
-        alert("Kan geen verbinding maken met de database (Supabase ontbreekt).");
-        return;
-      }
+      if (!db) return;
       const { data, error } = await db.from('recepten').select('*');
       if (error) { 
         console.error("Fout bij ophalen:", error); 
         return; 
       }
       recipes = data || [];
-
       document.getElementById("toggleTrash").textContent = `🗑️ Prullenbak (${trashRecipes.length})`;
       updateShoplistCount();
       renderApp();
     }
 
-    // --- 3. UI RENDER FUNCTIE ---
     function renderApp() {
       const searchTerm = document.getElementById("search").value.toLowerCase().trim();
       const catNavElement = document.getElementById("catNav");
@@ -275,7 +263,6 @@
       counter.textContent = `Recept ${index + 1} van ${gefilterde.length}`;
     }
 
-    // --- 4. TIMER LOGICA ---
     function startTimer(minutes, recipeName) {
       if (activeTimer) clearInterval(activeTimer);
       timeLeft = minutes * 60;
@@ -328,7 +315,6 @@
       return !isNaN(pureNum) ? pureNum : 0;
     }
 
-    // --- 5. BOODSCHAPPENLIJST & PRULLENBAK ---
     function openShoplistModal(encodedJson) {
       inShoplistView = true;
       document.getElementById("toggleShoplist").textContent = "← Terug naar recepten";
@@ -453,7 +439,6 @@
       }).join("");
     }
 
-    // --- 6. HULPFUNCTIES VOOR PARSEN ---
     function parseIng(ingData) {
       if (typeof ingData === 'string') {
           try { return JSON.parse(ingData); } catch(e) { return ingData.split('\n'); }
@@ -500,10 +485,8 @@
       }).join("");
     }
 
-    // --- 7. DATABASE ACTIES ---
     async function moveToTrash(id) {
       if (!confirm("Weet je zeker dat je dit recept naar de prullenbak wilt verplaatsen?")) return;
-      
       const recipeToMove = recipes.find(r => r.id === id);
       if (!recipeToMove) return;
 
@@ -515,7 +498,6 @@
         alert("Fout bij opschonen: " + deleteError.message);
         return;
       }
-
       fetchRecipes();
     }
 
@@ -524,7 +506,6 @@
       if (!recipeToRestore) return;
 
       delete recipeToRestore.id;
-
       const { error: insertError } = await db.from('recepten').insert([recipeToRestore]);
       if (insertError) {
         alert("Fout bij terugzetten: " + insertError.message);
@@ -533,12 +514,11 @@
 
       trashRecipes.splice(localIdx, 1);
       localStorage.setItem('myTrashRecipes', JSON.stringify(trashRecipes));
-
       fetchRecipes();
     }
 
     function deletePermanent(localIdx) {
-      if (!confirm("Wil je dit recept definitief wissen? Dit kan niet ongedaan worden gemaakt.")) return;
+      if (!confirm("Wil je dit recept definitief wissen?")) return;
       trashRecipes.splice(localIdx, 1);
       localStorage.setItem('myTrashRecipes', JSON.stringify(trashRecipes));
       renderApp();
@@ -577,14 +557,13 @@
 
     async function verwijderCategorie(event, cat) {
       event.stopPropagation();
-      if (!confirm(`Weet je zeker dat je de categorie '${cat}' wilt verwijderen? De recepten worden verplaatst naar 'Overig'.`)) return;
+      if (!confirm(`Weet je zeker dat je de categorie '${cat}' wilt verwijderen?`)) return;
       
       const { error } = await db.from('recepten').update({ categorie: 'Overig' }).eq('categorie', cat);
       if (error) {
           alert("Fout bij verwijderen: " + error.message);
           return;
       }
-      
       huidigeCategorie = "Overig";
       fetchRecipes();
     }
@@ -700,7 +679,6 @@
       if (error) { alert("Fout: " + error.message); return; }
 
       alert(editId ? "Recept succesvol bijgewerkt!" : "Recept succesvol opgeslagen!");
-      
       document.getElementById("addForm").classList.remove("show");
       fetchRecipes();
     }
@@ -721,8 +699,9 @@
       renderApp();
     };
 
-    // --- 8. INITIALE START ---
-    fetchRecipes();
+    window.addEventListener('DOMContentLoaded', () => {
+      fetchRecipes();
+    });
   </script>
 </body>
 </html>
