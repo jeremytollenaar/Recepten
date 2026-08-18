@@ -160,14 +160,65 @@
     async function fetchRecipes() {
       if (!db) return;
       const { data, error } = await db.from('recepten').select('*');
-      if (error) { 
-        console.error("Fout bij ophalen:", error); 
-        return; 
+      if (error) {
+        console.error("Fout bij ophalen:", error);
+        alert("De recepten konden niet worden geladen uit Supabase. Controleer de Supabase URL, publishable key en RLS-beleid.\n\nFout: " + error.message);
+        return;
       }
       recipes = data || [];
       document.getElementById("toggleTrash").textContent = `🗑️ Prullenbak (${trashRecipes.length})`;
       updateShoplistCount();
       renderApp();
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function bindDynamicButtons() {
+      document.querySelectorAll('.cat-btn').forEach(btn => {
+        btn.addEventListener('click', () => selectCategory(btn.dataset.category));
+      });
+
+      document.querySelectorAll('[data-delete-category]').forEach(btn => {
+        btn.addEventListener('click', (event) =>
+          verwijderCategorie(event, btn.dataset.deleteCategory)
+        );
+      });
+
+      document.querySelectorAll('.timer-btn').forEach(btn => {
+        btn.addEventListener('click', () =>
+          startTimer(Number(btn.dataset.timerMinutes), btn.dataset.timerName)
+        );
+      });
+
+      document.querySelectorAll('.add-shop-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const recipe = gefilterdeForCurrentView()[Number(btn.dataset.recipeIndex)];
+          if (recipe) openShoplistModal(parseIng(recipe.ingredienten));
+        });
+      });
+    }
+
+    function gefilterdeForCurrentView() {
+      const searchTerm = document.getElementById("search").value.toLowerCase().trim();
+      if (searchTerm) {
+        return recipes.filter(r => {
+          const titelMatch = r.titel && r.titel.toLowerCase().includes(searchTerm);
+          const catMatch = r.categorie && r.categorie.toLowerCase().includes(searchTerm);
+          let ingString = "";
+          try { ingString = parseIng(r.ingredienten).join(" ").toLowerCase(); } catch(e) {}
+          let stepString = "";
+          try { stepString = parseStepsRaw(r.bereiding).join(" ").toLowerCase(); } catch(e) {}
+          return titelMatch || catMatch || ingString.includes(searchTerm) || stepString.includes(searchTerm);
+        });
+      }
+      return recipes.filter(r => (r.categorie || "Overig") === huidigeCategorie);
     }
 
     function renderApp() {
@@ -211,8 +262,8 @@
 
       catNavElement.innerHTML = cats.map(c => `
         <div class="cat-pill ${huidigeCategorie === c ? 'active' : ''}">
-          <button class="cat-btn" onclick="selectCategory('${c}')">${c}</button>
-          ${c !== "Overig" ? `<button class="cat-del-btn" onclick="verwijderCategorie(event, '${c}')" title="Verwijder categorie">🗑️</button>` : ''}
+          <button class="cat-btn" data-category="${escapeHtml(c)}">${escapeHtml(c)}</button>
+          ${c !== "Overig" ? `<button class="cat-del-btn" data-delete-category="${escapeHtml(c)}" title="Verwijder categorie">🗑️</button>` : ''}
         </div>
       `).join("");
 
@@ -248,30 +299,30 @@
 
       carousel.innerHTML = gefilterde.map((r, i) => {
         let ingList = parseIng(r.ingredienten);
-        let ingHtml = ingList.map(x => `<li>${x.replace(/["\[\]]/g, '')}</li>`).join("");
+        let ingHtml = ingList.map(x => `<li>${escapeHtml(String(x).replace(/["\[\]]/g, ''))}</li>`).join("");
         let stepsHtml = parseSteps(r.bereiding);
 
         let metaInfo = [];
-        if (r.categorie) metaInfo.push(`<strong>Categorie:</strong> ${r.categorie}`);
+        if (r.categorie) metaInfo.push(`<strong>Categorie:</strong> ${escapeHtml(r.categorie)}`);
         
         if (r.tijd) {
           let minutes = extractMinutes(r.tijd);
-          let timerBtnHtml = minutes > 0 ? `<button class="timer-btn" onclick="startTimer(${minutes}, '${r.titel.replace(/'/g, "\\'")}')">⏱️ Start (${minutes}m)</button>` : '';
+          let timerBtnHtml = minutes > 0 ? `<button class="timer-btn" data-timer-minutes="${minutes}" data-timer-name="${escapeHtml(r.titel || 'Recept')}">⏱️ Start (${minutes}m)</button>` : '';
           metaInfo.push(`<strong>Tijd:</strong> ${r.tijd} ${timerBtnHtml}`);
         }
 
-        if (r.moeilijkheid) metaInfo.push(`<strong>Moeilijkheid:</strong> ${r.moeilijkheid}`);
+        if (r.moeilijkheid) metaInfo.push(`<strong>Moeilijkheid:</strong> ${escapeHtml(r.moeilijkheid)}`);
         let metaHtml = metaInfo.length > 0 ? `<p>${metaInfo.join(' &middot; ')}</p>` : '';
 
-        const safeIngredientsJSON = JSON.stringify(ingList).replace(/"/g, '&quot;');
+        const safeIngredientsJSON = '';
 
         return `
         <div class="recipe ${i === index ? 'active' : ''}">
-            <h2>${r.titel || 'Naamloos Recept'}</h2>
+            <h2>${escapeHtml(r.titel || 'Naamloos Recept')}</h2>
             ${metaHtml}
             <h3>Ingrediënten</h3>
             <ul class="step-list">${ingHtml || '<li>Geen ingrediënten.</li>'}</ul>
-            <button class="nav-btn" onclick='openShoplistModal("${safeIngredientsJSON}")' style="margin-top:10px; font-size:0.85rem; padding:6px 10px;">🛒 Voeg toe aan boodschappenlijst</button>
+            <button class="nav-btn add-shop-btn" data-recipe-index="${i}" style="margin-top:10px; font-size:0.85rem; padding:6px 10px;">🛒 Voeg toe aan boodschappenlijst</button>
             <h3>Bereiding</h3>
             <div style="margin-top:10px;">${stepsHtml || '<p style="color:#aaa;">Geen stappen.</p>'}</div>
             <div style="margin-top: 20px; display: flex; gap: 10px;">
@@ -281,6 +332,7 @@
         </div>`;
       }).join("");
 
+      bindDynamicButtons();
       counter.textContent = `Recept ${index + 1} van ${gefilterde.length}`;
     }
 
@@ -336,29 +388,28 @@
       return !isNaN(pureNum) ? pureNum : 0;
     }
 
-    function openShoplistModal(encodedJson) {
+    var pendingShopIngredients = [];
+
+    function openShoplistModal(ingredientsArray) {
       inShoplistView = true;
       document.getElementById("toggleShoplist").textContent = "← Terug naar recepten";
       document.getElementById("addForm").classList.remove("show");
       document.getElementById("shoplistView").classList.add("show");
 
-      let ingredientsArray = [];
-      try {
-        ingredientsArray = JSON.parse(encodedJson.replace(/&quot;/g, '"'));
-      } catch(e) {
-        ingredientsArray = [];
-      }
+      pendingShopIngredients = Array.isArray(ingredientsArray) ? ingredientsArray : [];
 
       const container = document.getElementById("shoplistIngredientsContainer");
-      container.innerHTML = `<p style="font-weight:bold; color:#fff; margin-bottom:5px;">Selecteer de ingrediënten:</p>` + 
-        ingredientsArray.map((item, idx) => `
-          <div class="shop-item">
-            <input type="checkbox" id="ing_opt_${idx}" value="${item.replace(/["\[\]]/g, '')}" checked>
-            <label for="ing_opt_${idx}" style="cursor:pointer; color:#e0e0e0;">${item.replace(/["\[\]]/g, '')}</label>
-          </div>
-        `).join('') + `
-        <button class="save-recipe-btn" onclick="confirmAddShoplist()" style="width:100%; margin-top:10px;">Voeg aangevinkte toe aan lijst</button>
-      `;
+      container.innerHTML =
+        `<p style="font-weight:bold; color:#fff; margin-bottom:5px;">Selecteer de ingrediënten:</p>` +
+        pendingShopIngredients.map((item, idx) => {
+          const clean = String(item).replace(/["\[\]]/g, '');
+          return `
+            <div class="shop-item">
+              <input type="checkbox" id="ing_opt_${idx}" value="${escapeHtml(clean)}" checked>
+              <label for="ing_opt_${idx}" style="cursor:pointer; color:#e0e0e0;">${escapeHtml(clean)}</label>
+            </div>`;
+        }).join('') +
+        `<button class="save-recipe-btn" onclick="confirmAddShoplist()" style="width:100%; margin-top:10px;">Voeg aangevinkte toe aan lijst</button>`;
 
       renderShoplistUI();
     }
@@ -423,7 +474,7 @@
       inTrashView = !inTrashView;
       if (inShoplistView) inShoplistView = false;
       const btn = document.getElementById("toggleTrash");
-      btn.textContent = inShoplistView ? "← Terug naar recepten" : `🗑️ Prullenbak (${trashRecipes.length})`;
+      btn.textContent = inTrashView ? "← Terug naar recepten" : `🗑️ Prullenbak (${trashRecipes.length})`;
       index = 0;
       renderApp();
     }
@@ -442,12 +493,12 @@
 
       carousel.innerHTML = gefilterde.map((r, localIdx) => {
         let ingList = parseIng(r.ingredienten);
-        let ingHtml = ingList.map(x => `<li>${x.replace(/["\[\]]/g, '')}</li>`).join("");
+        let ingHtml = ingList.map(x => `<li>${escapeHtml(String(x).replace(/["\[\]]/g, ''))}</li>`).join("");
         let stepsHtml = parseSteps(r.bereiding);
 
         return `
         <div class="recipe active" style="margin-bottom: 20px;">
-            <h2>🗑️ ${r.titel || 'Naamloos'} <span style="font-size:0.8rem; color:#ab7c7c;">(Categorie: ${r.categorie || 'Overig'})</span></h2>
+            <h2>🗑️ ${escapeHtml(r.titel || 'Naamloos')} <span style="font-size:0.8rem; color:#ab7c7c;">(Categorie: ${escapeHtml(r.categorie || 'Overig')})</span></h2>
             <h3>Ingrediënten</h3>
             <ul class="step-list">${ingHtml}</ul>
             <h3>Bereiding</h3>
@@ -705,16 +756,14 @@
     }
 
     document.getElementById("next").onclick = () => {
-      const searchTerm = document.getElementById("search").value.toLowerCase().trim();
-      let gefilterde = searchTerm ? recipes.filter(r => (r.titel && r.titel.toLowerCase().includes(searchTerm)) || (r.categorie && r.categorie.toLowerCase().includes(searchTerm))) : recipes.filter(r => (r.categorie || "Overig") === huidigeCategorie);
+      const gefilterde = gefilterdeForCurrentView();
       if (gefilterde.length === 0) return;
       index = (index + 1) % gefilterde.length;
       renderApp();
     };
 
     document.getElementById("prev").onclick = () => {
-      const searchTerm = document.getElementById("search").value.toLowerCase().trim();
-      let gefilterde = searchTerm ? recipes.filter(r => (r.titel && r.titel.toLowerCase().includes(searchTerm)) || (r.categorie && r.categorie.toLowerCase().includes(searchTerm))) : recipes.filter(r => (r.categorie || "Overig") === huidigeCategorie);
+      const gefilterde = gefilterdeForCurrentView();
       if (gefilterde.length === 0) return;
       index = (index - 1 + gefilterde.length) % gefilterde.length;
       renderApp();
