@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Landen receptenboek</title>
-  <!-- Supabase Client Library -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Supabase Client Library met cache-buster -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2?v=2"></script>
   <style>
     body {
       font-family: system-ui, sans-serif;
@@ -353,7 +353,6 @@
   </div>
 
   <script>
-    // Supabase configuratie
     const SUPABASE_URL = 'https://tnwdxmzvrmfwpwhcmkto.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX';
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -361,7 +360,7 @@
     let recipes = [];
     let index = 0;
     let isEditing = false;
-    let editId = null; // We gebruiken nu het Supabase ID i.p.v. array index
+    let editId = null;
 
     async function fetchRecipes() {
       const { data, error } = await db.from('recepten').select('*');
@@ -460,7 +459,6 @@
         article.className = "recipe" + (i === index ? " active" : "");
 
         let stepsHtml = "";
-        // Let op: in Supabase heten kolommen zoals jij ze eerder hebt aangemaakt ('titel', 'bereiding', etc.)
         const stappenData = r.bereiding || r.steps; 
         
         if (stappenData && Array.isArray(stappenData)) {
@@ -481,7 +479,6 @@
           }).join("");
         }
 
-        // Ingrediënten kunnen uit de database komen als array of als string/tekstvlak
         let ingList = [];
         if (Array.isArray(r.ingredienten)) {
           ingList = r.ingredienten;
@@ -669,7 +666,6 @@
       document.getElementById("shoppingListPopup").classList.remove("show");
     }
 
-    // Start het ophalen van data uit Supabase bij laden van de pagina
     fetchRecipes();
   </script>
 
