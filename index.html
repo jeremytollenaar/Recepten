@@ -31,7 +31,7 @@
       display: flex;
       justify-content: center;
       gap: 8px;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1rem;
       flex-wrap: wrap;
     }
 
@@ -51,12 +51,47 @@
       color: #fff;
     }
 
+    /* Alfabet navigatie */
+    .alphabet-nav {
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 4px;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .alphabet-btn {
+      background: #2d2d2d;
+      color: #ab7c7c;
+      border: 1px solid #ab7c7c;
+      padding: 5px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: bold;
+    }
+
+    .alphabet-btn:hover:not(:disabled) {
+      background: #ab7c7c;
+      color: #fff;
+    }
+
+    .alphabet-btn:disabled {
+      background: #222;
+      color: #555;
+      border-color: #333;
+      cursor: not-allowed;
+    }
+
     .carousel {
       max-width: 600px;
       margin: 0 auto;
     }
 
-    /* Moderne App-Card stijl */
+    /* Recept Kaart */
     .recipe {
       display: none;
       background: #2d2d2d;
@@ -66,6 +101,7 @@
       text-align: left;
       opacity: 0;
       transition: opacity 0.3s ease;
+      margin-bottom: 1rem;
     }
 
     .recipe.active {
@@ -82,9 +118,59 @@
       color: #ab7c7c;
       border-bottom: 1px solid #444;
       padding-bottom: 4px;
+      margin-top: 1.2rem;
     }
 
-    .nav-btn, .copy-btn, .edit-btn, .delete-btn, .shop-btn, #toggleAdd, #toggleTrash {
+    /* Stappen kaders */
+    .steps-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .step-frame {
+      background-color: #363636;
+      border: 1px solid #444;
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      border-bottom: 1px solid #444;
+      padding-bottom: 0.4rem;
+    }
+
+    .step-number-kader {
+      font-weight: bold;
+      color: #ab7c7c;
+      margin-right: 0.8rem;
+      font-size: 1.1rem;
+    }
+
+    .step-title-display {
+      font-weight: bold;
+      color: #fff;
+      font-size: 1.05rem;
+    }
+
+    .step-list {
+      margin: 0;
+      padding-left: 1.2rem;
+      color: #ccc;
+      line-height: 1.5;
+    }
+
+    .step-list li {
+      margin-bottom: 0.4rem;
+      text-align: left;
+    }
+
+    /* Knoppen */
+    .nav-btn, .copy-btn, .edit-btn, .delete-btn, .shop-btn, #toggleAdd, #toggleTrash, .save-recipe-btn {
       background: #ab7c7c;
       color: #fff;
       border: none;
@@ -95,6 +181,12 @@
       font-weight: bold;
       margin-top: 8px;
       margin-right: 6px;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .nav-btn:active, .save-recipe-btn:active {
+      transform: scale(0.97);
+      background: #8f6565;
     }
 
     .delete-btn {
@@ -122,6 +214,7 @@
       flex-wrap: wrap;
     }
 
+    /* Formulier */
     #addForm {
       max-width: 600px;
       margin: 2rem auto;
@@ -149,6 +242,36 @@
       box-sizing: border-box;
     }
 
+    .step-input-group {
+      background: #363636;
+      border: 1px solid #444;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 0.8rem;
+    }
+
+    .remove-step-btn {
+      background: #d9534f;
+      color: #fff;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+    }
+
+    .add-step-btn {
+      background: #555;
+      color: #fff;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+
     .counter {
       margin-top: 0.8rem;
       font-size: 0.95rem;
@@ -166,6 +289,9 @@
 
   <input type="text" id="search" placeholder="Zoek een recept...">
 
+  <!-- Alfabet navigatiebalk -->
+  <div class="alphabet-nav" id="alphabetNav"></div>
+
   <div class="top-actions">
     <button id="toggleAdd" onclick="toggleForm()">+ Recept toevoegen</button>
   </div>
@@ -173,11 +299,17 @@
   <div id="addForm">
     <h2>Nieuw recept</h2>
     <input type="text" id="newTitle" placeholder="Titel van recept">
-    <input type="text" id="newCat" placeholder="Categorie (bijv. Landen, Pasta, Ontbijt)">
+    <input type="text" id="newCat" placeholder="Categorie (bijv. Landen, Pasta)">
     <input type="text" id="newTime" placeholder="Bereidingstijd (bijv. 20 min)">
     <input type="text" id="newDifficulty" placeholder="Moeilijkheid">
+    
     <textarea id="newIngredients" placeholder="Ingrediënten (één per regel)" rows="4"></textarea>
-    <button onclick="saveRecipe()" style="background: #ab7c7c; color: #fff; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer;">Opslaan</button>
+    
+    <label style="color: #ccc; font-weight: bold;">Bereidingsstappen:</label>
+    <div id="stepsInputContainer" style="margin-top: 0.5rem;"></div>
+    <button type="button" class="add-step-btn" onclick="addStepInput()">+ Stap toevoegen</button>
+
+    <button class="save-recipe-btn" onclick="saveRecipe()" style="width: 100%;">Opslaan</button>
   </div>
 
   <div class="carousel" id="carousel">
@@ -191,7 +323,7 @@
   </div>
 
   <script>
-    const db = supabase.createClient('httpstnwdxmzvrmfwpwhcmkto.supabase.co'.replace('tnwd','//tnwd'), 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX');
+    const db = supabase.createClient('https://tnwdxmzvrmfwpwhcmkto.supabase.co', 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX');
     let recipes = [];
     let index = 0;
     let huidigeCategorie = "Landen";
@@ -207,7 +339,7 @@
     }
 
     function renderApp() {
-      // Bepaal unieke categorieën uit de database (+ standaard categorieën)
+      // Categorieën bepalen
       const cats = ["Landen", "Pasta", "Ontbijt", "Dessert"];
       recipes.forEach(r => { if(r.categorie && !cats.includes(r.categorie)) cats.push(r.categorie); });
 
@@ -217,6 +349,9 @@
       `).join("");
 
       const gefilterde = recipes.filter(r => (r.categorie || "Landen") === huidigeCategorie);
+      
+      renderAlphabetNav(gefilterde);
+
       const carousel = document.getElementById("carousel");
       const counter = document.getElementById("counter");
 
@@ -236,17 +371,65 @@
         let ingList = Array.isArray(r.ingredienten) ? r.ingredienten : (r.ingredienten ? r.ingredienten.split('\n') : []);
         let ingHtml = ingList.map(x => `<li>${x}</li>`).join("");
 
+        // Bereidingsstappen opbouwen
+        let stepsHtml = "";
+        const stappenData = r.bereiding || r.steps;
+        if (stappenData && Array.isArray(stappenData)) {
+          stepsHtml = stappenData.map((s, idx) => {
+            const lines = s.lines || [];
+            const linesHtml = lines.map(line => `<li>${line.replace(/^-\s*/, '')}</li>`).join("");
+            return `
+              <div class="step-frame">
+                <div class="step-header">
+                  <span class="step-number-kader">${idx + 1}.</span>
+                  <span class="step-title-display">${s.title || 'Stap'}</span>
+                </div>
+                <ul class="step-list">${linesHtml}</ul>
+              </div>
+            `;
+          }).join("");
+        }
+
         article.innerHTML = `
           <h2>${r.titel || 'Naamloos'}</h2>
           <p><strong>Tijd:</strong> ${r.tijd || '-'} &middot; <strong>Moeilijkheid:</strong> ${r.moeilijkheid || '-'}</p>
           <h3>Ingrediënten</h3>
-          <ul>${ingHtml}</ul>
+          <ul class="step-list">${ingHtml}</ul>
+          <h3>Bereiding</h3>
+          <div class="steps-container">${stepsHtml}</div>
           <button class="delete-btn" onclick="deleteRecipe(${r.id})">Verwijderen</button>
         `;
         carousel.appendChild(article);
       });
 
       counter.textContent = `Recept ${index + 1} van ${gefilterde.length}`;
+    }
+
+    function renderAlphabetNav(gefilterde) {
+      const navContainer = document.getElementById("alphabetNav");
+      navContainer.innerHTML = "";
+      const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+      alphabet.forEach(letter => {
+        const btn = document.createElement("button");
+        btn.className = "alphabet-btn";
+        btn.textContent = letter;
+
+        const hasRecipe = gefilterde.some(r => r.titel && r.titel.toUpperCase().startsWith(letter));
+
+        if (!hasRecipe) {
+          btn.disabled = true;
+        } else {
+          btn.onclick = () => {
+            const foundIndex = gefilterde.findIndex(r => r.titel && r.titel.toUpperCase().startsWith(letter));
+            if (foundIndex !== -1) {
+              index = foundIndex;
+              renderApp();
+            }
+          };
+        }
+        navContainer.appendChild(btn);
+      });
     }
 
     function selectCategory(cat) {
@@ -256,7 +439,24 @@
     }
 
     function toggleForm() {
-      document.getElementById("addForm").classList.toggle("show");
+      const form = document.getElementById("addForm");
+      if (!form.classList.contains("show")) {
+        document.getElementById("stepsInputContainer").innerHTML = "";
+        addStepInput("", "");
+      }
+      form.classList.toggle("show");
+    }
+
+    function addStepInput(title = "", linesText = "") {
+      const container = document.getElementById("stepsInputContainer");
+      const group = document.createElement("div");
+      group.className = "step-input-group";
+      group.innerHTML = `
+        <input type="text" class="step-title-input" placeholder="Titel van de stap (bijv. Voorbereiding)" value="${title}">
+        <textarea class="step-lines-input" placeholder="Elke regel wordt een losse bullet..." rows="3">${linesText}</textarea>
+        <button type="button" class="remove-step-btn" onclick="this.parentElement.remove()">Verwijder stap</button>
+      `;
+      container.appendChild(group);
     }
 
     async function saveRecipe() {
@@ -266,12 +466,25 @@
       const moeilijkheid = document.getElementById("newDifficulty").value.trim();
       const ingredienten = document.getElementById("newIngredients").value.split("\n").map(x => x.trim()).filter(x => x);
 
-      if (!titel) {
-        alert("Vul ten minste een titel in.");
+      const stepGroups = document.querySelectorAll(".step-input-group");
+      const bereiding = [];
+
+      stepGroups.forEach(group => {
+        const stepTitle = group.querySelector(".step-title-input").value.trim();
+        const linesText = group.querySelector(".step-lines-input").value;
+        const lines = linesText.split("\n").map(x => x.trim().replace(/^-\s*/, '')).filter(x => x);
+
+        if (stepTitle || lines.length > 0) {
+          bereiding.push({ title: stepTitle || "Stap", lines: lines });
+        }
+      });
+
+      if (!titel || ingredienten.length === 0) {
+        alert("Vul ten minste een titel en ingrediënten in.");
         return;
       }
 
-      const { error } = await db.from('recepten').insert([{ titel, categorie, tijd, moeilijkheid, ingredienten }]);
+      const { error } = await db.from('recepten').insert([{ titel, categorie, tijd, moeilijkheid, ingredienten, bereiding }]);
       if (error) {
         alert("Fout bij opslaan: " + error.message);
         return;
