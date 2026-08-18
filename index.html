@@ -108,14 +108,20 @@
       
       let cats = [...new Set(recipes.map(r => r.categorie).filter(c => c && c.trim() !== ""))];
       if (cats.length === 0) cats = ["Overig"];
+      
+      // Zorg dat 'Overig' altijd achteraan staat als vaste basiscategorie
+      if (cats.includes("Overig")) {
+        cats = cats.filter(c => c !== "Overig");
+        cats.push("Overig");
+      }
 
       if (!cats.includes(huidigeCategorie)) huidigeCategorie = cats[0];
 
-      // Bouw categorie knoppen op
+      // Bouw categorie knoppen op (Geen prullenbakje voor 'Overig')
       document.getElementById("catNav").innerHTML = cats.map(c => `
         <div class="cat-pill ${huidigeCategorie === c ? 'active' : ''}">
           <button class="cat-btn" onclick="selectCategory('${c}')">${c}</button>
-          <button class="cat-del-btn" onclick="verwijderCategorie(event, '${c}')" title="Verwijder categorie">🗑️</button>
+          ${c !== "Overig" ? `<button class="cat-del-btn" onclick="verwijderCategorie(event, '${c}')" title="Verwijder categorie">🗑️</button>` : ''}
         </div>
       `).join("");
 
@@ -224,23 +230,12 @@
       event.stopPropagation();
       if (!confirm(`Weet je zeker dat je de categorie '${cat}' wilt verwijderen? De recepten worden verplaatst naar 'Overig'.`)) return;
       
-      // 1. Standaard update voor de categorie die is aangeklikt
       const { error } = await db.from('recepten').update({ categorie: 'Overig' }).eq('categorie', cat);
-      
-      // 2. EXTREME SCHOONMAAK voor 'Landen'
-      // Ruimt spook-waardes (hoofdletterverschillen, onzichtbare spaties of lege categorieën) rigoureus op
-      if (cat.trim().toLowerCase() === 'landen') {
-          await db.from('recepten').update({ categorie: 'Overig' }).ilike('categorie', 'landen');
-          await db.from('recepten').update({ categorie: 'Overig' }).is('categorie', null);
-          await db.from('recepten').update({ categorie: 'Overig' }).in('categorie', ['', ' ']);
-      }
-
       if (error) {
           alert("Fout bij verwijderen: " + error.message);
           return;
       }
       
-      // Spring over naar Overig en haal data opnieuw op
       huidigeCategorie = "Overig";
       fetchRecipes();
     }
