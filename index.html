@@ -2,45 +2,25 @@
 <html lang="nl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Receptenboek</title>
-  <!-- Supabase library -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   
+  <!-- Supabase CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <style>
-    body { font-family: sans-serif; background: #1a1a1a; color: #fff; padding: 20px; }
-    .show { display: block !important; }
-    #addForm, #shoplistView { display: none; background: #2d2d2d; padding: 20px; border-radius: 10px; margin-top: 20px; }
-    button { padding: 10px; cursor: pointer; }
+    body { font-family: system-ui, sans-serif; background: #1a1a1a; color: #e0e0e0; margin: 0; padding: 16px; text-align: center; }
+    h1 { color: #fff; margin-bottom: 5px; }
+    p { color: #aaa; }
+    .nav-btn, .save-recipe-btn, .add-step-btn, .remove-step-btn, .restore-btn, .timer-btn, .edit-btn, #toggleAdd, #toggleTrash, #toggleShoplist { background: #ab7c7c; color: #fff; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; margin: 5px; }
+    #addForm, #shoplistView, #trashView { max-width: 600px; margin: 2rem auto; background: #2d2d2d; padding: 20px; border-radius: 16px; text-align: left; display: none; }
+    #addForm.show, #shoplistView.show, #trashView.show { display: block; }
+    input, textarea { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #444; background: #363636; color: #fff; box-sizing: border-box; }
+    .recipe { background: #2d2d2d; padding: 20px; border-radius: 16px; margin-bottom: 1rem; text-align: left; max-width: 600px; margin-left: auto; margin-right: auto; }
   </style>
-</head>
-<body>
 
-  <h1>Receptenboek</h1>
-
-  <!-- Bedieningsknoppen -->
-  <div style="margin-bottom: 20px;">
-    <button id="btn-add" onclick="openAddForm()">+ Recept toevoegen</button>
-    <button id="btn-shop" onclick="toggleShoplistView()">🛒 Boodschappenlijst</button>
-    <button id="btn-trash" onclick="toggleTrashView()">🗑️ Prullenbak</button>
-  </div>
-
-  <div id="addForm">
-    <h2>Nieuw recept</h2>
-    <input type="text" id="newTitle" placeholder="Titel">
-    <button onclick="saveRecipe()">Opslaan</button>
-  </div>
-
-  <div id="shoplistView">
-    <h2>Boodschappenlijst</h2>
-  </div>
-
-  <div id="trashView">
-    <h2>Prullenbak</h2>
-  </div>
-
+  <!-- CRUCIAAL: Alle variabelen worden hier direct en als eerste aangemaakt -->
   <script>
-    // 1. GLOBALE VARIABELEN (Duidelijk gedefinieerd)
     var recipes = [];
     var trashRecipes = [];
     var shoppingList = [];
@@ -48,73 +28,147 @@
     var inShoplistView = false;
     var db = null;
 
-    // 2. SUPABASE INITIALISATIE (Hardcoded om fouten uit te sluiten)
+    // Veilige lokale opslag inladen
     try {
-      // Directe initialisatie zodra de library geladen is
-      db = supabase.createClient(
-        'https://tnwdxmzvrmfwpwhcmkto.supabase.co',
-        'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX'
-      );
-      console.log("Supabase verbonden.");
-    } catch (err) {
-      console.error("Supabase initialisatie fout:", err);
+      trashRecipes = JSON.parse(localStorage.getItem('myTrashRecipes') || '[]');
+      shoppingList = JSON.parse(localStorage.getItem('myShoplist') || '[]');
+    } catch(e) {
+      trashRecipes = [];
+      shoppingList = [];
+    }
+  </script>
+</head>
+<body>
+
+  <h1>Receptenboek</h1>
+  <p id="subTitle">Beheer je favoriete recepten</p>
+
+  <div style="margin-bottom: 1.5rem;">
+    <button id="toggleAdd" onclick="openAddForm()">+ Recept toevoegen</button>
+    <button id="toggleShoplist" onclick="toggleShoplistView()">🛒 Boodschappenlijst (0)</button>
+    <button id="toggleTrash" onclick="toggleTrashView()">🗑️ Prullenbak (0)</button>
+  </div>
+
+  <div id="shoplistView">
+    <h2>Boodschappenlijst</h2>
+    <p style="color:#aaa;">Je lijst is leeg.</p>
+  </div>
+
+  <div id="addForm">
+    <h2>Nieuw recept</h2>
+    <input type="text" id="newTitle" placeholder="Titel van recept">
+    <button class="save-recipe-btn" onclick="saveRecipe()" style="width:100%">Opslaan</button>
+  </div>
+
+  <div id="trashView">
+    <h2>Prullenbak</h2>
+  </div>
+
+  <div id="carousel"></div>
+
+  <script>
+    // Supabase veilige initialisatie zodra de pagina laadt
+    document.addEventListener("DOMContentLoaded", function() {
+      try {
+        const supabaseUrl = 'https://tnwdxmzvrmfwpwhcmkto.supabase.co';
+        const supabaseKey = 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX';
+        
+        if (window.supabase && typeof window.supabase.createClient === 'function') {
+          db = window.supabase.createClient(supabaseUrl, supabaseKey);
+          fetchRecipes();
+        } else {
+          console.error("Supabase SDK niet gevonden.");
+        }
+      } catch (err) {
+        console.error("Fout bij opzetten Supabase:", err);
+      }
+    });
+
+    async function fetchRecipes() {
+      if (!db) return;
+      const { data, error } = await db.from('recepten').select('*');
+      if (error) {
+        console.error("Fout bij ophalen:", error);
+        return;
+      }
+      recipes = data || [];
+      renderApp();
     }
 
-    // 3. FUNCTIES (Veilig geplaatst in de globale scope)
     function openAddForm() {
-      // Reset andere views
-      inTrashView = false;
       inShoplistView = false;
-      document.getElementById('shoplistView').classList.remove('show');
+      inTrashView = false;
+      document.getElementById("shoplistView").classList.remove("show");
+      document.getElementById("trashView").classList.remove("show");
       
-      const form = document.getElementById('addForm');
-      form.classList.toggle('show');
+      const form = document.getElementById("addForm");
+      form.classList.toggle("show");
     }
 
     function toggleShoplistView() {
       inShoplistView = !inShoplistView;
       inTrashView = false;
-      document.getElementById('addForm').classList.remove('show');
+      document.getElementById("addForm").classList.remove("show");
+      document.getElementById("trashView").classList.remove("show");
       
-      const shopDiv = document.getElementById('shoplistView');
+      const shopDiv = document.getElementById("shoplistView");
       if (inShoplistView) {
-        shopDiv.classList.add('show');
+        shopDiv.classList.add("show");
       } else {
-        shopDiv.classList.remove('show');
+        shopDiv.classList.remove("show");
       }
+      renderApp();
     }
 
     function toggleTrashView() {
       inTrashView = !inTrashView;
       inShoplistView = false;
-      document.getElementById('addForm').classList.remove('show');
+      document.getElementById("addForm").classList.remove("show");
+      document.getElementById("shoplistView").classList.remove("show");
       
-      const trashDiv = document.getElementById('trashView');
+      const trashDiv = document.getElementById("trashView");
       if (inTrashView) {
-        trashDiv.classList.add('show');
+        trashDiv.classList.add("show");
       } else {
-        trashDiv.classList.remove('show');
+        trashDiv.classList.remove("show");
       }
+      renderApp();
     }
 
     async function saveRecipe() {
-      if (!db) { alert("Database niet geladen!"); return; }
-      const title = document.getElementById('newTitle').value;
-      const { data, error } = await db.from('recepten').insert([{ titel: title }]);
+      if (!db) { alert("Database niet verbonden!"); return; }
+      const titel = document.getElementById("newTitle").value.trim();
+      if (!titel) { alert("Vul een titel in."); return; }
+
+      const { error } = await db.from('recepten').insert([{ titel: titel }]);
       if (error) {
         alert("Fout bij opslaan: " + error.message);
-      } else {
-        alert("Opgeslagen!");
-        document.getElementById('addForm').classList.remove('show');
+        return;
       }
+
+      alert("Recept opgeslagen!");
+      document.getElementById("newTitle").value = "";
+      document.getElementById("addForm").classList.remove("show");
+      fetchRecipes();
     }
 
-    // Direct ophalen bij start
-    if (db) {
-      db.from('recepten').select('*').then(({ data }) => {
-        recipes = data || [];
-        console.log("Recepten geladen:", recipes.length);
-      });
+    function renderApp() {
+      const carousel = document.getElementById("carousel");
+      if (inShoplistView || inTrashView) {
+        carousel.innerHTML = "";
+        return;
+      }
+
+      if (recipes.length === 0) {
+        carousel.innerHTML = `<div class="recipe"><p>Geen recepten gevonden.</p></div>`;
+        return;
+      }
+
+      carousel.innerHTML = recipes.map(r => `
+        <div class="recipe">
+          <h2>${r.titel || 'Naamloos'}</h2>
+        </div>
+      `).join("");
     }
   </script>
 </body>
