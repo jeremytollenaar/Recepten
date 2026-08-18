@@ -37,23 +37,18 @@
         const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         async function saveRecipe() {
-            const titelVal = document.getElementById('titel').value;
-            const personenVal = document.getElementById('personen').value;
-            const ingredientenVal = document.getElementById('ingredienten').value;
-            const bereidingVal = document.getElementById('bereiding').value;
+            const titel = document.getElementById('titel').value;
+            const personen = document.getElementById('personen').value;
+            const ingredienten = document.getElementById('ingredienten').value;
+            const bereiding = document.getElementById('bereiding').value;
 
-            if (!titelVal) {
+            if (!titel) {
                 alert('Vul in ieder geval een titel in!');
                 return;
             }
 
             const { data, error } = await db.from('recepten').insert([
-                { 
-                    titel: titelVal, 
-                    personen: personenVal, 
-                    ingredienten: ingredientenVal, 
-                    bereiding: bereidingVal 
-                }
+                { titel, personen, ingredienten, bereiding }
             ]);
 
             if (error) {
