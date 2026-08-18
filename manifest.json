@@ -5,11 +5,13 @@
   "display": "standalone",
   "background_color": "#f7f3f0",
   "theme_color": "#ab7c7c",
+  "description": "Een handig overzicht van al je favoriete recepten uit verschillende landen.",
   "icons": [
     {
       "src": "icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
