@@ -106,14 +106,12 @@
     function renderApp() {
       const searchTerm = document.getElementById("search").value.toLowerCase();
       
-      // Zoek alle unieke categorieën. Als er geen zijn, gebruik "Overig".
       let cats = [...new Set(recipes.map(r => r.categorie).filter(c => c && c.trim() !== ""))];
       if (cats.length === 0) cats = ["Overig"];
 
-      // Zorg dat huidigeCategorie altijd een geldige optie is
       if (!cats.includes(huidigeCategorie)) huidigeCategorie = cats[0];
 
-      // Bouw categorie knoppen op (IEDERE categorie kan verwijderd worden)
+      // Bouw categorie knoppen op
       document.getElementById("catNav").innerHTML = cats.map(c => `
         <div class="cat-pill ${huidigeCategorie === c ? 'active' : ''}">
           <button class="cat-btn" onclick="selectCategory('${c}')">${c}</button>
@@ -123,7 +121,6 @@
 
       document.getElementById("catList").innerHTML = cats.map(c => `<option value="${c}">`).join("");
 
-      // Filteren
       let gefilterde = recipes.filter(r => (r.categorie || "Overig") === huidigeCategorie);
       if (searchTerm) {
         gefilterde = gefilterde.filter(r => (r.titel && r.titel.toLowerCase().includes(searchTerm)));
@@ -144,17 +141,15 @@
 
       carousel.innerHTML = gefilterde.map((r, i) => {
         
-        // --- INGREDIËNTEN UITPAKKEN ---
         let ingList = [];
         if (typeof r.ingredienten === 'string') {
-            try { ingList = JSON.parse(r.ingredienten); } // Probeer uit te pakken als JSON
-            catch(e) { ingList = r.ingredienten.split('\n'); } // Als dat mislukt, scheid op enters
+            try { ingList = JSON.parse(r.ingredienten); } 
+            catch(e) { ingList = r.ingredienten.split('\n'); } 
         } else if (Array.isArray(r.ingredienten)) {
             ingList = r.ingredienten;
         }
         let ingHtml = ingList.filter(x => x.trim() !== "").map(x => `<li>${x.replace(/["\[\]]/g, '')}</li>`).join("");
 
-        // --- BEREIDING UITPAKKEN ---
         let bList = [];
         if (typeof r.bereiding === 'string') {
             try { bList = JSON.parse(r.bereiding); } catch(e) { console.warn("Kon bereiding niet lezen", r.bereiding); }
@@ -165,7 +160,7 @@
         let stepsHtml = bList.map((s, idx) => {
             let lines = Array.isArray(s.lines) ? s.lines : [s.lines];
             let linesHtml = lines.filter(l => l && l.trim() !== "").map(line => `<li>${line}</li>`).join("");
-            if(!linesHtml) return ""; // Lege stap overslaan
+            if(!linesHtml) return ""; 
 
             return `
             <div class="step-frame">
@@ -177,7 +172,6 @@
             </div>`;
         }).join("");
 
-        // Tijd & Moeilijkheid format
         let metaInfo = [];
         if (r.tijd) metaInfo.push(`<strong>Tijd:</strong> ${r.tijd}`);
         if (r.moeilijkheid) metaInfo.push(`<strong>Moeilijkheid:</strong> ${r.moeilijkheid}`);
@@ -230,12 +224,24 @@
       event.stopPropagation();
       if (!confirm(`Weet je zeker dat je de categorie '${cat}' wilt verwijderen? De recepten worden verplaatst naar 'Overig'.`)) return;
       
+      // 1. Standaard update voor de categorie die is aangeklikt
       const { error } = await db.from('recepten').update({ categorie: 'Overig' }).eq('categorie', cat);
+      
+      // 2. EXTREME SCHOONMAAK voor 'Landen'
+      // Ruimt spook-waardes (hoofdletterverschillen, onzichtbare spaties of lege categorieën) rigoureus op
+      if (cat.trim().toLowerCase() === 'landen') {
+          await db.from('recepten').update({ categorie: 'Overig' }).ilike('categorie', 'landen');
+          await db.from('recepten').update({ categorie: 'Overig' }).is('categorie', null);
+          await db.from('recepten').update({ categorie: 'Overig' }).in('categorie', ['', ' ']);
+      }
+
       if (error) {
           alert("Fout bij verwijderen: " + error.message);
           return;
       }
       
+      // Spring over naar Overig en haal data opnieuw op
+      huidigeCategorie = "Overig";
       fetchRecipes();
     }
 
@@ -265,11 +271,9 @@
       const tijd = document.getElementById("newTime").value.trim();
       const moeilijkheid = document.getElementById("newDifficulty").value.trim();
       
-      // Ingrediënten als array maken
       const ingText = document.getElementById("newIngredients").value;
       const ingredientenArray = ingText.split("\n").map(x => x.trim()).filter(x => x);
       
-      // Bereiding als array van objecten maken
       const bereidingArray = [];
       document.querySelectorAll(".step-input-group").forEach(group => {
         const title = group.querySelector(".step-title").value.trim();
@@ -283,7 +287,6 @@
 
       if (!titel) { alert("Vul op zijn minst een titel in."); return; }
 
-      // We zetten de arrays om in JSON-strings voor de database, dit voorkomt storingen ongeacht je databasetype
       const payload = { 
         titel, 
         categorie, 
@@ -298,7 +301,6 @@
 
       alert("Recept succesvol opgeslagen!");
       
-      // Formulier resetten
       document.getElementById("newTitle").value = "";
       document.getElementById("newCat").value = "";
       document.getElementById("newTime").value = "";
