@@ -1,314 +1,677 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mijn Digitale Kookboek</title>
-    <!-- Supabase Client Library -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        :root {
-            --primary: #e06d53;
-            --primary-hover: #c85a40;
-            --danger: #e53e3e;
-            --danger-hover: #c53030;
-            --bg-color: #f8f9fa;
-            --card-bg: #ffffff;
-            --text-main: #2d3748;
-            --text-muted: #718096;
-            --border: #e2e8f0;
-        }
+  <meta charset="UTF-8">
+  <title>Landen receptenboek</title>
+  <!-- Supabase Client Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f7f3f0;
+      margin: 0;
+      padding: 2.5rem;
+      text-align: center;
+    }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            max-width: 700px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            line-height: 1.6;
-        }
+    .carousel {
+      max-width: 600px;
+      margin: 0 auto;
+    }
 
-        h1 {
-            text-align: center;
-            color: var(--text-main);
-            margin-bottom: 25px;
-            font-size: 2.2rem;
-        }
+    .recipe {
+      display: none;
+      background: #fff;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      text-align: left;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
 
-        .card {
-            background: var(--card-bg);
-            padding: 20px;
-            margin-bottom: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1);
-            border: 1px solid var(--border);
-        }
+    .recipe.active {
+      display: block;
+      opacity: 1;
+    }
 
-        .card h3 {
-            margin-top: 0;
-            color: var(--primary);
-            font-size: 1.3rem;
-            margin-bottom: 15px;
-        }
+    .nav-btn {
+      background: #ab7c7c;
+      color: #fff;
+      border: none;
+      padding: 0.7rem 1.2rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      margin: 1rem 0.5rem 0;
+    }
 
-        .form-group {
-            margin-bottom: 12px;
-        }
+    .copy-btn, .edit-btn, .delete-btn, .shop-btn {
+      background: #ab7c7c;
+      color: #fff;
+      border: none;
+      padding: 0.6rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+      margin-right: 0.5rem;
+    }
+    .copy-btn:hover, .edit-btn:hover, .delete-btn:hover, .shop-btn:hover {
+      background: #8f6565;
+    }
 
-        label {
-            display: block;
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 4px;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
+    .delete-btn {
+      background: #d9534f;
+    }
+    .delete-btn:hover {
+      background: #c9302c;
+    }
 
-        input, textarea {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 1rem;
-            box-sizing: border-box;
-            font-family: inherit;
-            transition: border-color 0.2s;
-        }
+    #search {
+      width: 300px;
+      padding: 0.6rem;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      margin-bottom: 1rem;
+      font-size: 1rem;
+    }
 
-        input:focus, textarea:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(224, 109, 83, 0.15);
-        }
+    /* Alfabet navigatie styling */
+    .alphabet-nav {
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 4px;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
 
-        textarea {
-            resize: vertical;
-            min-height: 100px;
-        }
+    .alphabet-btn {
+      background: #fff;
+      color: #ab7c7c;
+      border: 1px solid #ab7c7c;
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
 
-        button {
-            width: 100%;
-            padding: 12px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s, transform 0.1s;
-            margin-top: 5px;
-        }
+    .alphabet-btn:hover:not(:disabled) {
+      background: #ab7c7c;
+      color: #fff;
+    }
 
-        button:hover {
-            background: var(--primary-hover);
-        }
+    .alphabet-btn:disabled {
+      background: #e0e0e0;
+      color: #999;
+      border-color: #ccc;
+      cursor: not-allowed;
+    }
 
-        button:active {
-            transform: scale(0.98);
-        }
+    /* Stappen kaders styling */
+    .steps-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
 
-        .btn-danger {
-            background: var(--danger);
-            width: auto;
-            padding: 6px 12px;
-            font-size: 0.85rem;
-            margin-top: 15px;
-        }
+    .step-frame {
+      background-color: #f9f7f5;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 1rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
 
-        .btn-danger:hover {
-            background: var(--danger-hover);
-        }
+    .step-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      border-bottom: 1px solid #eaded5;
+      padding-bottom: 0.4rem;
+    }
 
-        /* Zoekbalk styling */
-        .search-container {
-            margin-bottom: 20px;
-        }
+    .step-number-kader {
+      font-weight: bold;
+      color: #ab7c7c;
+      margin-right: 0.8rem;
+      font-size: 1.1rem;
+    }
 
-        /* Recepten kaart styling */
-        .recipe-card {
-            background: var(--card-bg);
-            padding: 20px;
-            margin-bottom: 15px;
-            border-radius: 12px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
-            border: 1px solid var(--border);
-            border-left: 5px solid var(--primary);
-        }
+    .step-title-display {
+      font-weight: bold;
+      color: #444;
+      font-size: 1.05rem;
+    }
 
-        .recipe-card h2 {
-            margin-top: 0;
-            margin-bottom: 8px;
-            font-size: 1.5rem;
-            color: var(--text-main);
-        }
+    .step-list {
+      margin: 0;
+      padding-left: 0;
+      list-style-position: inside;
+      color: #333;
+      line-height: 1.5;
+    }
 
-        .recipe-meta {
-            display: inline-block;
-            background: #edf2f7;
-            padding: 3px 10px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            margin-bottom: 15px;
-            font-weight: 500;
-        }
+    .step-list li {
+      margin-bottom: 0.5rem;
+      text-align: left;
+      text-indent: -1.2rem;
+      padding-left: 1.2rem;
+    }
 
-        .recipe-section-title {
-            font-weight: 600;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            margin-top: 15px;
-            margin-bottom: 5px;
-            letter-spacing: 0.5px;
-        }
+    .top-actions {
+      margin-bottom: 1.5rem;
+    }
 
-        .recipe-content {
-            white-space: pre-line;
-            color: #4a5568;
-        }
+    #toggleAdd {
+      background: #ab7c7c;
+      color: #fff;
+      border: none;
+      padding: 0.8rem 1.2rem;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background 0.2s;
+    }
+    #toggleAdd:hover {
+      background: #8f6565;
+    }
 
-        .loading, .empty-state {
-            text-align: center;
-            color: var(--text-muted);
-            padding: 20px;
-        }
-    </style>
+    /* Formulier */
+    #addForm {
+      max-width: 600px;
+      margin: 2rem auto;
+      background: #fff;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      text-align: left;
+      display: none;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    #addForm.show {
+      display: block;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    #addForm input, #addForm textarea {
+      width: 100%;
+      padding: 0.6rem;
+      margin-bottom: 1rem;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+
+    .step-input-group {
+      background: #faf8f6;
+      border: 1px solid #ddd;
+      padding: 0.8rem;
+      border-radius: 8px;
+      margin-bottom: 0.8rem;
+    }
+
+    .step-input-group input {
+      margin-bottom: 0.5rem !important;
+    }
+
+    .step-input-group textarea {
+      margin-bottom: 0 !important;
+      resize: vertical;
+      height: 70px;
+    }
+
+    .remove-step-btn {
+      background: #d9534f;
+      color: #fff;
+      border: none;
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+    }
+
+    .add-step-btn {
+      background: #6c757d;
+      color: #fff;
+      border: none;
+      padding: 0.5rem 0.8rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+
+    #addForm button[onclick="saveRecipe()"] {
+      background: #ab7c7c;
+      color: #fff;
+      border: none;
+      padding: 0.7rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      display: block;
+      width: 100%;
+      margin-top: 1rem;
+    }
+
+    .counter {
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      color: #555;
+    }
+
+    /* Boodschappenlijst popup */
+    #shoppingListPopup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      width: 400px;
+      display: none;
+      text-align: left;
+      z-index: 1000;
+    }
+
+    #shoppingListPopup.show {
+      display: block;
+    }
+
+    #shoppingListPopup button {
+      margin-top: 1rem;
+      background: #ab7c7c;
+      color: white;
+      border: none;
+      padding: 0.6rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
 
-    <h1>Mijn Kookboek 🍳</h1>
+  <h1>Landen recepten</h1>
+  <p>Scroll door je recepten met de knoppen of kies een letter.</p>
 
-    <!-- Formulier om recepten toe te voegen -->
-    <div class="card">
-        <h3>Nieuw recept toevoegen</h3>
-        <div class="form-group">
-            <label for="titel">Titel</label>
-            <input type="text" id="titel" placeholder="Bijv. Bosnische Ćufte">
-        </div>
-        <div class="form-group">
-            <label for="personen">Aantal personen</label>
-            <input type="text" id="personen" placeholder="Bijv. 4 personen">
-        </div>
-        <div class="form-group">
-            <label for="ingredienten">Ingrediënten</label>
-            <textarea id="ingredienten" placeholder="Elk ingrediënt op een nieuwe regel..."></textarea>
-        </div>
-        <div class="form-group">
-            <label for="bereiding">Bereidingswijze</label>
-            <textarea id="bereiding" placeholder="Stappenplan van de bereiding..."></textarea>
-        </div>
-        <button onclick="saveRecipe()">Recept Opslaan</button>
-    </div>
+  <input type="text" id="search" placeholder="Zoek een recept...">
 
-    <!-- Zoekbalk -->
-    <div class="search-container">
-        <input type="text" id="searchInput" placeholder="🔍 Zoek op recept of ingrediënt..." onkeyup="filterRecipes()">
-    </div>
+  <!-- Alfabet navigatiebalk -->
+  <div class="alphabet-nav" id="alphabetNav"></div>
 
-    <h2 style="font-size: 1.5rem; margin-top: 20px; margin-bottom: 15px;">Opgeslagen Recepten</h2>
-    <div id="recipe-list">
-        <div class="loading">Recepten ophalen...</div>
-    </div>
+  <div class="top-actions">
+    <button id="toggleAdd" onclick="toggleForm()">Recept toevoegen</button>
+  </div>
 
-    <script>
-        const SUPABASE_URL = 'https://tnwdxmzvrmfwpwhcmkto.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX';
+  <div id="addForm">
+    <h2 id="formTitle">Nieuw recept</h2>
+
+    <input type="text" id="newTitle" placeholder="Titel van recept">
+    <input type="text" id="newTime" placeholder="Bereidingstijd (bijv. 20 min)">
+    <input type="text" id="newDifficulty" placeholder="Moeilijkheid">
+
+    <textarea id="newIngredients" placeholder="Ingrediënten (één per regel)" rows="5"></textarea>
+    
+    <label><strong>Bereidingsstappen:</strong></label>
+    <div id="stepsInputContainer" style="margin-top: 0.5rem;"></div>
+    <button type="button" class="add-step-btn" onclick="addStepInput()">+ Stap toevoegen</button>
+
+    <button onclick="saveRecipe()">Opslaan</button>
+  </div>
+
+  <div class="carousel" id="carousel">
+    <div style="padding: 20px; color: #718096;">Recepten laden uit Supabase...</div>
+  </div>
+
+  <div>
+    <button id="prev" class="nav-btn">◀ Vorige</button>
+    <button id="next" class="nav-btn">Volgende ▶</button>
+    <div class="counter" id="counter"></div>
+  </div>
+
+  <!-- Boodschappenlijst popup -->
+  <div id="shoppingListPopup">
+    <h2>Boodschappenlijst</h2>
+    <ul id="shoppingList"></ul>
+    <button onclick="closeShoppingList()">Sluiten</button>
+  </div>
+
+  <script>
+    // Supabase configuratie
+    const SUPABASE_URL = 'https://tnwdxmzvrmfwpwhcmkto.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX';
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let recipes = [];
+    let index = 0;
+    let isEditing = false;
+    let editId = null; // We gebruiken nu het Supabase ID i.p.v. array index
+
+    async function fetchRecipes() {
+      const { data, error } = await db.from('recepten').select('*');
+      
+      if (error) {
+        console.error('Fout bij ophalen:', error.message);
+        document.getElementById('carousel').innerHTML = '<p>Kon recepten niet laden uit de database.</p>';
+        return;
+      }
+
+      recipes = data || [];
+      renderRecipes();
+    }
+
+    function toggleForm() {
+      const form = document.getElementById("addForm");
+
+      if (form.classList.contains("show")) {
+        form.classList.remove("show");
+        return;
+      }
+
+      isEditing = false;
+      editId = null;
+
+      document.getElementById("formTitle").innerText = "Nieuw recept";
+      document.getElementById("newTitle").value = "";
+      document.getElementById("newTime").value = "";
+      document.getElementById("newDifficulty").value = "";
+      document.getElementById("newIngredients").value = "";
+      
+      document.getElementById("stepsInputContainer").innerHTML = "";
+      addStepInput("", "");
+
+      form.classList.add("show");
+    }
+
+    function addStepInput(title = "", linesText = "") {
+      const container = document.getElementById("stepsInputContainer");
+      const group = document.createElement("div");
+      group.className = "step-input-group";
+      group.innerHTML = `
+        <input type="text" class="step-title-input" placeholder="Titel van de stap (bijv. Voorbereiding)" value="${title}">
+        <textarea class="step-lines-input" placeholder="Elke regel wordt een losse bullet...">${linesText}</textarea>
+        <button type="button" class="remove-step-btn" onclick="this.parentElement.remove()">Verwijder stap</button>
+      `;
+      container.appendChild(group);
+    }
+
+    function renderAlphabetNav() {
+      const navContainer = document.getElementById("alphabetNav");
+      navContainer.innerHTML = "";
+
+      const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+      alphabet.forEach(letter => {
+        const btn = document.createElement("button");
+        btn.className = "alphabet-btn";
+        btn.textContent = letter;
+
+        const hasRecipe = recipes.some(r => r.titel && r.titel.toUpperCase().startsWith(letter));
+
+        if (!hasRecipe) {
+          btn.disabled = true;
+        } else {
+          btn.onclick = () => {
+            const foundIndex = recipes.findIndex(r => r.titel && r.titel.toUpperCase().startsWith(letter));
+            if (foundIndex !== -1) {
+              index = foundIndex;
+              renderRecipes();
+            }
+          };
+        }
+
+        navContainer.appendChild(btn);
+      });
+    }
+
+    function renderRecipes() {
+      const carousel = document.getElementById("carousel");
+      const counter = document.getElementById("counter");
+      carousel.innerHTML = "";
+
+      if (recipes.length === 0) {
+        carousel.innerHTML = "<p>Geen recepten gevonden in de database.</p>";
+        counter.textContent = "Recept 0 van 0";
+        renderAlphabetNav();
+        return;
+      }
+
+      if (index >= recipes.length) index = recipes.length - 1;
+      if (index < 0) index = 0;
+
+      recipes.forEach((r, i) => {
+        const article = document.createElement("article");
+        article.className = "recipe" + (i === index ? " active" : "");
+
+        let stepsHtml = "";
+        // Let op: in Supabase heten kolommen zoals jij ze eerder hebt aangemaakt ('titel', 'bereiding', etc.)
+        const stappenData = r.bereiding || r.steps; 
         
-        const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        let allRecipes = [];
-
-        async function saveRecipe() {
-            const titel = document.getElementById('titel').value.trim();
-            const personen = document.getElementById('personen').value.trim();
-            const ingredienten = document.getElementById('ingredienten').value.trim();
-            const bereiding = document.getElementById('bereiding').value.trim();
-
-            if (!titel) {
-                alert('Vul in ieder geval een titel in!');
-                return;
-            }
-
-            const { error } = await db.from('recepten').insert([
-                { titel, personen, ingredienten, bereiding }
-            ]);
-
-            if (error) {
-                console.error('Supabase error:', error);
-                alert('Fout bij opslaan: ' + error.message);
-            } else {
-                alert('Opgeslagen!');
-                location.reload();
-            }
+        if (stappenData && Array.isArray(stappenData)) {
+          stepsHtml = stappenData.map((s, idx) => {
+            const lines = s.lines || [];
+            const linesHtml = lines.map(line => `<li>${line.replace(/^-\s*/, '')}</li>`).join("");
+            return `
+              <div class="step-frame">
+                <div class="step-header">
+                  <span class="step-number-kader">${idx + 1}.</span>
+                  <span class="step-title-display">${s.title || 'Stap'}</span>
+                </div>
+                <ul class="step-list">
+                  ${linesHtml}
+                </ul>
+              </div>
+            `;
+          }).join("");
         }
 
-        async function deleteRecipe(id) {
-            if (!confirm('Weet je zeker dat je dit recept wilt verwijderen?')) return;
-
-            const { error } = await db.from('recepten').delete().eq('id', id);
-
-            if (error) {
-                alert('Fout bij verwijderen: ' + error.message);
-            } else {
-                fetchRecipes();
-            }
+        // Ingrediënten kunnen uit de database komen als array of als string/tekstvlak
+        let ingList = [];
+        if (Array.isArray(r.ingredienten)) {
+          ingList = r.ingredienten;
+        } else if (typeof r.ingredienten === 'string') {
+          ingList = r.ingredienten.split('\n').filter(x => x.trim());
         }
 
-        async function fetchRecipes() {
-            const { data, error } = await db.from('recepten').select('*');
-            
-            if (error) {
-                console.error('Fout bij ophalen:', error.message);
-                document.getElementById('recipe-list').innerHTML = '<div class="empty-state">Kon recepten niet laden.</div>';
-                return;
-            }
+        const ingredientsHtml = ingList.map(x => `<li>${x}</li>`).join("");
 
-            allRecipes = data || [];
-            displayRecipes(allRecipes);
+        article.innerHTML = `
+          <h2>${r.titel || r.title || 'Naamloos'}</h2>
+          <p><strong>Tijd:</strong> ${r.tijd || r.time || '-'} · <strong>Moeilijkheid:</strong> ${r.moeilijkheid || r.difficulty || '-'}</p>
+
+          <h3>Ingrediënten</h3>
+          <ul>${ingredientsHtml}</ul>
+
+          <button class="copy-btn" onclick="copyIngredients(this)">Ingrediënten kopiëren</button>
+          <button class="shop-btn" onclick='generateShoppingList(${JSON.stringify(ingList)})'>Boodschappenlijst</button>
+          <button class="edit-btn" onclick="openEditForm(${i})">Aanpassen</button>
+          <button class="delete-btn" onclick="deleteRecipe(${r.id})">Verwijderen</button>
+
+          <h3>Bereiding</h3>
+          <div class="steps-container">
+            ${stepsHtml}
+          </div>
+        `;
+
+        carousel.appendChild(article);
+      });
+
+      counter.textContent = `Recept ${index + 1} van ${recipes.length}`;
+      renderAlphabetNav();
+    }
+
+    function openEditForm(i) {
+      isEditing = true;
+      const r = recipes[i];
+      editId = r.id;
+
+      document.getElementById("formTitle").innerText = "Recept aanpassen";
+
+      document.getElementById("newTitle").value = r.titel || r.title || "";
+      document.getElementById("newTime").value = r.tijd || r.time || "";
+      document.getElementById("newDifficulty").value = r.moeilijkheid || r.difficulty || "";
+      
+      let ingText = "";
+      if (Array.isArray(r.ingredienten)) {
+        ingText = r.ingredienten.join("\n");
+      } else if (typeof r.ingredienten === 'string') {
+        ingText = r.ingredienten;
+      }
+      document.getElementById("newIngredients").value = ingText;
+
+      const stepsContainer = document.getElementById("stepsInputContainer");
+      stepsContainer.innerHTML = "";
+      
+      const stappenData = r.bereiding || r.steps;
+      if (stappenData && Array.isArray(stappenData)) {
+        stappenData.forEach(step => {
+          let linesStr = "";
+          if (step.lines) {
+            linesStr = step.lines.map(l => l.replace(/^-\s*/, '')).join("\n");
+          }
+          addStepInput(step.title || "", linesStr);
+        });
+      } else {
+        addStepInput("", "");
+      }
+
+      document.getElementById("addForm").classList.add("show");
+    }
+
+    async function saveRecipe() {
+      const titel = document.getElementById("newTitle").value.trim();
+      const tijd = document.getElementById("newTime").value.trim();
+      const moeilijkheid = document.getElementById("newDifficulty").value.trim();
+      const ingredienten = document.getElementById("newIngredients").value.split("\n").map(x => x.trim()).filter(x => x);
+      
+      const stepGroups = document.querySelectorAll(".step-input-group");
+      const bereiding = [];
+
+      stepGroups.forEach(group => {
+        const stepTitle = group.querySelector(".step-title-input").value.trim();
+        const linesText = group.querySelector(".step-lines-input").value;
+        const lines = linesText.split("\n").map(x => x.trim().replace(/^-\s*/, '')).filter(x => x);
+
+        if (stepTitle || lines.length > 0) {
+          bereiding.push({ title: stepTitle || "Stap", lines: lines });
         }
+      });
 
-        function displayRecipes(recipes) {
-            const list = document.getElementById('recipe-list');
-            list.innerHTML = '';
+      if (!titel || !tijd || !moeilijkheid || ingredienten.length === 0 || bereiding.length === 0) {
+        alert("Vul alle hoofdvelden in en zorg voor ten minste één geldige stap.");
+        return;
+      }
 
-            if (recipes.length > 0) {
-                recipes.forEach(r => {
-                    list.innerHTML += `
-                        <div class="recipe-card">
-                            <h2>${r.titel}</h2>
-                            ${r.personen ? `<div class="recipe-meta">🍽️ Voor ${r.personen}</div>` : ''}
-                            
-                            ${r.ingredienten ? `
-                                <div class="recipe-section-title">Ingrediënten</div>
-                                <div class="recipe-content">${r.ingredienten}</div>
-                            ` : ''}
-                            
-                            ${r.bereiding ? `
-                                <div class="recipe-section-title">Bereiding</div>
-                                <div class="recipe-content">${r.bereiding}</div>
-                            ` : ''}
+      if (!isEditing) {
+        const { error } = await db.from('recepten').insert([
+          { titel, tijd, moeilijkheid, ingredienten, bereiding }
+        ]);
 
-                            <button class="btn-danger" onclick="deleteRecipe(${r.id})">🗑️ Verwijderen</button>
-                        </div>`;
-                });
-            } else {
-                list.innerHTML = '<div class="empty-state">Geen recepten gevonden.</div>';
-            }
+        if (error) {
+          alert('Fout bij opslaan: ' + error.message);
+          return;
         }
+        alert("Recept toegevoegd!");
+      } else {
+        const { error } = await db.from('recepten')
+          .update({ titel, tijd, moeilijkheid, ingredienten, bereiding })
+          .eq('id', editId);
 
-        function filterRecipes() {
-            const query = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = allRecipes.filter(r => 
-                (r.titel && r.titel.toLowerCase().includes(query)) || 
-                (r.ingredienten && r.ingredienten.toLowerCase().includes(query))
-            );
-            displayRecipes(filtered);
+        if (error) {
+          alert('Fout bij bijwerken: ' + error.message);
+          return;
         }
+        alert("Recept aangepast!");
+      }
 
+      document.getElementById("addForm").classList.remove("show");
+      fetchRecipes();
+    }
+
+    async function deleteRecipe(id) {
+      if (!confirm("Weet je zeker dat je dit recept wilt verwijderen?")) return;
+
+      const { error } = await db.from('recepten').delete().eq('id', id);
+
+      if (error) {
+        alert('Fout bij verwijderen: ' + error.message);
+      } else {
         fetchRecipes();
-    </script>
+      }
+    }
+
+    function copyIngredients(btn) {
+      const recipe = btn.closest(".recipe");
+      const items = [...recipe.querySelectorAll("ul li")].map(li => "- " + li.innerText);
+      navigator.clipboard.writeText(items.join("\n")).then(() => {
+        alert("Ingrediënten gekopieerd!");
+      });
+    }
+
+    document.getElementById("next").onclick = () => {
+      if (recipes.length === 0) return;
+      index = (index + 1) % recipes.length;
+      renderRecipes();
+    };
+
+    document.getElementById("prev").onclick = () => {
+      if (recipes.length === 0) return;
+      index = (index - 1 + recipes.length) % recipes.length;
+      renderRecipes();
+    };
+
+    document.getElementById("search").addEventListener("input", function() {
+      const term = this.value.toLowerCase().trim();
+      if (!term) {
+        index = 0;
+        renderRecipes();
+        return;
+      }
+
+      const foundIndex = recipes.findIndex(r => {
+        const stepsText = (r.bereiding || r.steps || []).map(s => (s.title || "") + " " + (s.lines || []).join(" ")).join(" ");
+        const fullText = (r.titel || r.title || "") + " " + (r.tijd || r.time || "") + " " + (r.moeilijkheid || r.difficulty || "") + " " +
+                         (Array.isArray(r.ingredienten) ? r.ingredienten.join(" ") : (r.ingredienten || "")) + " " + stepsText;
+        return fullText.toLowerCase().includes(term);
+      });
+
+      if (foundIndex !== -1) {
+        index = foundIndex;
+        renderRecipes();
+      }
+    });
+
+    function generateShoppingList(ingredients) {
+      const popup = document.getElementById("shoppingListPopup");
+      const list = document.getElementById("shoppingList");
+
+      list.innerHTML = ingredients.map(x => `<li>${x}</li>`).join("");
+      popup.classList.add("show");
+    }
+
+    function closeShoppingList() {
+      document.getElementById("shoppingListPopup").classList.remove("show");
+    }
+
+    // Start het ophalen van data uit Supabase bij laden van de pagina
+    fetchRecipes();
+  </script>
+
 </body>
 </html>
