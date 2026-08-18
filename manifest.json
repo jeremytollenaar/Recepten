@@ -1,20 +1,34 @@
+```json
 {
   "name": "Receptenboek",
-  "short_name": "Recepten",
-  "start_url": "./index.html",
+  "short_name": "Receptenboek",
+  "description": "Jouw persoonlijke receptenboek met recepten, categorieën, timer en boodschappenlijst.",
+  "lang": "nl-NL",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1a1a1a",
   "background_color": "#1a1a1a",
-  "theme_color": "#ab7c7c",
+  "categories": [
+    "food",
+    "lifestyle"
+  ],
   "icons": [
     {
-      "src": "https://via.placeholder.com/192",
+      "src": "./icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "https://via.placeholder.com/512",
+      "src": "./icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  "prefer_related_applications": false
 }
+```
