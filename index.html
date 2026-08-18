@@ -10,6 +10,10 @@
     h1 { color: #fff; margin-bottom: 5px; }
     p { color: #aaa; }
 
+    /* Actieve Timer Banner */
+    #timerBanner { display: none; background: #ab7c7c; color: #fff; padding: 10px; border-radius: 10px; margin-bottom: 1rem; font-weight: bold; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+
     /* Categorie & Alfabet Navigatie */
     .cat-nav { display: flex; justify-content: center; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
     .cat-pill { display: flex; align-items: center; background: #2d2d2d; border: 1px solid #ab7c7c; border-radius: 8px; overflow: hidden; }
@@ -39,20 +43,28 @@
     .step-list { margin: 0; padding-left: 1.2rem; color: #ccc; line-height: 1.5; }
 
     /* Knoppen & Formulier */
-    .nav-btn, .save-recipe-btn, .add-step-btn, .remove-step-btn, .restore-btn, #toggleAdd, #toggleTrash { background: #ab7c7c; color: #fff; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; margin: 5px; }
+    .nav-btn, .save-recipe-btn, .add-step-btn, .remove-step-btn, .restore-btn, .timer-btn, #toggleAdd, #toggleTrash, #toggleShoplist { background: #ab7c7c; color: #fff; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; margin: 5px; }
+    .timer-btn { background: #4a7c59; padding: 4px 8px; font-size: 0.8rem; margin-left: 8px; }
     .remove-step-btn { background: #d9534f; }
     .restore-btn { background: #5cb85c; }
     
-    #addForm { max-width: 600px; margin: 2rem auto; background: #2d2d2d; padding: 20px; border-radius: 16px; text-align: left; display: none; }
-    #addForm.show { display: block; }
+    #addForm, #shoplistView { max-width: 600px; margin: 2rem auto; background: #2d2d2d; padding: 20px; border-radius: 16px; text-align: left; display: none; }
+    #addForm.show, #shoplistView.show { display: block; }
     input, textarea { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #444; background: #363636; color: #fff; box-sizing: border-box; }
     .step-input-group { background: #363636; border: 1px solid #444; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+    
+    /* Boodschappenlijst item styling */
+    .shop-item { display: flex; align-items: center; gap: 10px; background: #363636; padding: 8px 12px; border-radius: 6px; margin-bottom: 6px; }
+    .shop-item input[type="checkbox"] { width: 20px; height: 20px; margin: 0; cursor: pointer; }
   </style>
 </head>
 <body>
 
   <h1>Receptenboek</h1>
   <p id="subTitle">Kies een categorie of blader door je recepten.</p>
+
+  <!-- Actieve Timer Banner -->
+  <div id="timerBanner"></div>
 
   <!-- Categorie Navigatie -->
   <div class="cat-nav" id="catNav"></div>
@@ -64,7 +76,18 @@
 
   <div style="margin-bottom: 1.5rem;">
     <button id="toggleAdd" onclick="toggleForm()">+ Recept toevoegen</button>
+    <button id="toggleShoplist" onclick="toggleShoplistView()">🛒 Boodschappenlijst (0)</button>
     <button id="toggleTrash" onclick="toggleTrashView()">🗑️ Prullenbak (0)</button>
+  </div>
+
+  <!-- Boodschappenlijst Scherm -->
+  <div id="shoplistView">
+    <h2>Boodschappenlijst</h2>
+    <p style="font-size: 0.85rem; color: #aaa;">Vink aan wat je nodig hebt en zet op je lijst:</p>
+    <div id="shoplistIngredientsContainer" style="margin-bottom: 15px; max-height: 250px; overflow-y: auto;"></div>
+    <h3 style="margin-top: 1rem; color:#fff;">Jouw actieve lijst:</h3>
+    <ul id="finalShoplist" class="step-list" style="margin-bottom: 15px;"></ul>
+    <button class="remove-step-btn" onclick="clearShoplist()" style="width:100%">Lijst leegmaken</button>
   </div>
 
   <div id="addForm">
@@ -96,9 +119,15 @@
     const db = supabase.createClient('https://tnwdxmzvrmfwpwhcmkto.supabase.co', 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX');
     let recipes = [];
     let trashRecipes = [];
+    let shoppingList = JSON.parse(localStorage.getItem('myShoplist') || '[]');
     let index = 0;
     let huidigeCategorie = "Overig";
     let inTrashView = false;
+    let inShoplistView = false;
+
+    // Timer variabelen
+    let activeTimer = null;
+    let timeLeft = 0;
 
     async function fetchRecipes() {
       const { data, error } = await db.from('recepten').select('*');
@@ -113,6 +142,7 @@
       }
 
       document.getElementById("toggleTrash").textContent = `🗑️ Prullenbak (${trashRecipes.length})`;
+      updateShoplistCount();
       renderApp();
     }
 
@@ -121,17 +151,27 @@
       const catNavElement = document.getElementById("catNav");
       const alphabetNavElement = document.getElementById("alphabetNav");
       const paginationElement = document.getElementById("paginationContainer");
+      const addFormElement = document.getElementById("addForm");
+      const shoplistElement = document.getElementById("shoplistView");
 
-      if (inTrashView) {
+      if (inTrashView || inShoplistView) {
         catNavElement.style.display = "none";
         alphabetNavElement.style.display = "none";
-        document.getElementById("subTitle").textContent = "Verwijderde recepten in de prullenbak:";
         paginationElement.style.display = "none";
-        renderTrashList(searchTerm);
+        addFormElement.classList.remove("show");
+        if (inTrashView) {
+          document.getElementById("subTitle").textContent = "Verwijderde recepten in de prullenbak:";
+          shoplistElement.classList.remove("show");
+          renderTrashList(searchTerm);
+        } else {
+          document.getElementById("subTitle").textContent = "Jouw geselecteerde boodschappenlijst:";
+          renderShoplistUI();
+        }
         return;
       } else {
         catNavElement.style.display = "flex";
         alphabetNavElement.style.display = "flex";
+        shoplistElement.classList.remove("show");
         document.getElementById("subTitle").textContent = "Kies een categorie of blader door je recepten.";
         paginationElement.style.display = "block";
       }
@@ -155,14 +195,12 @@
 
       document.getElementById("catList").innerHTML = cats.map(c => `<option value="${c}">`).join("");
 
-      // Uitgebreide zoekfunctie: zoekt in titel, categorie, ingrediënten én bereiding
       let gefilterde = [];
       if (searchTerm) {
         gefilterde = recipes.filter(r => {
           const titelMatch = r.titel && r.titel.toLowerCase().includes(searchTerm);
           const catMatch = r.categorie && r.categorie.toLowerCase().includes(searchTerm);
           
-          // Ingrediënten doorzoeken (zowel string als array)
           let ingString = "";
           try {
             let parsedIng = parseIng(r.ingredienten);
@@ -172,7 +210,6 @@
           }
           const ingMatch = ingString.includes(searchTerm);
 
-          // Bereiding doorzoeken
           let stepString = "";
           try {
             let parsedSteps = parseStepsRaw(r.bereiding);
@@ -208,9 +245,19 @@
 
         let metaInfo = [];
         if (r.categorie) metaInfo.push(`<strong>Categorie:</strong> ${r.categorie}`);
-        if (r.tijd) metaInfo.push(`<strong>Tijd:</strong> ${r.tijd}`);
+        
+        // Bereidingstijd inclusief timer knop indien er minuten in staan
+        if (r.tijd) {
+          let minutes = extractMinutes(r.tijd);
+          let timerBtnHtml = minutes > 0 ? `<button class="timer-btn" onclick="startTimer(${minutes}, '${r.titel}')">⏱️ Start (${minutes}m)</button>` : '';
+          metaInfo.push(`<strong>Tijd:</strong> ${r.tijd} ${timerBtnHtml}`);
+        }
+
         if (r.moeilijkheid) metaInfo.push(`<strong>Moeilijkheid:</strong> ${r.moeilijkheid}`);
         let metaHtml = metaInfo.length > 0 ? `<p>${metaInfo.join(' &middot; ')}</p>` : '';
+
+        // Veilige string voor objectdoorgifte naar boodschappenlijst
+        const safeIngredientsJSON = JSON.stringify(ingList).replace(/"/g, '&quot;');
 
         return `
         <div class="recipe ${i === index ? 'active' : ''}">
@@ -218,6 +265,7 @@
             ${metaHtml}
             <h3>Ingrediënten</h3>
             <ul class="step-list">${ingHtml || '<li>Geen ingrediënten.</li>'}</ul>
+            <button class="nav-btn" onclick='openShoplistModal(${safeIngredientsJSON})' style="margin-top:10px; font-size:0.85rem; padding:6px 10px;">🛒 Voeg toe aan boodschappenlijst</button>
             <h3>Bereiding</h3>
             <div style="margin-top:10px;">${stepsHtml || '<p style="color:#aaa;">Geen stappen.</p>'}</div>
             <button class="remove-step-btn" onclick="moveToTrash(${r.id})" style="margin-top: 20px;">Verwijderen</button>
@@ -225,6 +273,123 @@
       }).join("");
 
       counter.textContent = `Recept ${index + 1} van ${gefilterde.length}`;
+    }
+
+    // Timer Functionaliteit
+    function startTimer(minutes, recipeName) {
+      if (activeTimer) clearInterval(activeTimer);
+      timeLeft = minutes * 60;
+      const banner = document.getElementById("timerBanner");
+      banner.style.display = "block";
+
+      function updateBanner() {
+        let m = Math.floor(timeLeft / 60);
+        let s = timeLeft % 60;
+        banner.textContent = `⏱️ Timer (${recipeName}): ${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        if (timeLeft <= 0) {
+          clearInterval(activeTimer);
+          activeTimer = null;
+          banner.textContent = `⏰ Tijd is om voor: ${recipeName}!`;
+          alert(`Kookwekker afgelopen voor: ${recipeName}!`);
+        }
+        timeLeft--;
+      }
+
+      updateBanner();
+      activeTimer = setInterval(updateBanner, 1000);
+    }
+
+    function extractMinutes(timeStr) {
+      const match = timeStr.match(/(\d+)\s*min/i);
+      if (match) return parseInt(match[1], 10);
+      const pureNum = parseInt(timeStr, 10);
+      return !isNaN(pureNum) ? pureNum : 0;
+    }
+
+    // Boodschappenlijst Selectie Modal / Scherm logica
+    function openShoplistModal(ingredientsArray) {
+      inShoplistView = true;
+      document.getElementById("toggleShoplist").textContent = "← Terug naar recepten";
+      document.getElementById("addForm").classList.remove("show");
+      document.getElementById("shoplistView").classList.add("show");
+
+      const container = document.getElementById("shoplistIngredientsContainer");
+      container.innerHTML = `<p style="font-weight:bold; color:#fff; margin-bottom:5px;">Selecteer de ingrediënten:</p>` + 
+        ingredientsArray.map((item, idx) => `
+          <div class="shop-item">
+            <input type="checkbox" id="ing_opt_${idx}" value="${item.replace(/["\[\]]/g, '')}" checked>
+            <label for="ing_opt_${idx}" style="cursor:pointer; color:#e0e0e0;">${item.replace(/["\[\]]/g, '')}</label>
+          </div>
+        `).join('') + `
+        <button class="save-recipe-btn" onclick="confirmAddShoplist()" style="width:100%; margin-top:10px;">Voeg aangevinkte toe aan lijst</button>
+      `;
+
+      renderShoplistUI();
+    }
+
+    function confirmAddShoplist() {
+      const checkboxes = document.querySelectorAll("#shoplistIngredientsContainer input[type='checkbox']");
+      checkboxes.forEach(cb => {
+        if (cb.checked && !shoppingList.includes(cb.value)) {
+          shoppingList.push(cb.value);
+        }
+      });
+      localStorage.setItem('myShoplist', JSON.stringify(shoppingList));
+      updateShoplistCount();
+      alert("Toegevoegd aan je boodschappenlijst!");
+      toggleShoplistView(); // terug naar normaal overzicht
+    }
+
+    function renderShoplistUI() {
+      const finalContainer = document.getElementById("finalShoplist");
+      if (shoppingList.length === 0) {
+        finalContainer.innerHTML = `<li style="color:#aaa;">Je boodschappenlijst is leeg.</li>`;
+        return;
+      }
+
+      finalContainer.innerHTML = shoppingList.map((item, idx) => `
+        <div class="shop-item" style="justify-content: space-between;">
+          <span>${item}</span>
+          <button class="remove-step-btn" onclick="removeShoplistItem(${idx})" style="padding: 2px 6px; font-size:0.75rem; margin:0;">Wissen</button>
+        </div>
+      `).join('');
+    }
+
+    function removeShoplistItem(idx) {
+      shoppingList.splice(idx, 1);
+      localStorage.setItem('myShoplist', JSON.stringify(shoppingList));
+      updateShoplistCount();
+      renderShoplistUI();
+    }
+
+    function clearShoplist() {
+      if (!confirm("Weet je zeker dat je de hele boodschappenlijst wilt legen?")) return;
+      shoppingList = [];
+      localStorage.setItem('myShoplist', JSON.stringify(shoppingList));
+      updateShoplistCount();
+      renderShoplistUI();
+    }
+
+    function updateShoplistCount() {
+      document.getElementById("toggleShoplist").textContent = `🛒 Boodschappenlijst (${shoppingList.length})`;
+    }
+
+    function toggleShoplistView() {
+      inShoplistView = !inShoplistView;
+      if (inTrashView) inTrashView = false;
+      const btn = document.getElementById("toggleShoplist");
+      btn.textContent = inShoplistView ? "← Terug naar recepten" : `🛒 Boodschappenlijst (${shoppingList.length})`;
+      index = 0;
+      renderApp();
+    }
+
+    function toggleTrashView() {
+      inTrashView = !inTrashView;
+      if (inShoplistView) inShoplistView = false;
+      const btn = document.getElementById("toggleTrash");
+      btn.textContent = inTrashView ? "← Terug naar recepten" : `🗑️ Prullenbak (${trashRecipes.length})`;
+      index = 0;
+      renderApp();
     }
 
     function renderTrashList(searchTerm) {
@@ -303,14 +468,6 @@
               <ul class="step-list">${linesHtml}</ul>
           </div>`;
       }).join("");
-    }
-
-    function toggleTrashView() {
-      inTrashView = !inTrashView;
-      const btn = document.getElementById("toggleTrash");
-      btn.textContent = inTrashView ? "← Terug naar recepten" : `🗑️ Prullenbak (${trashRecipes.length})`;
-      index = 0;
-      renderApp();
     }
 
     async function moveToTrash(id) {
@@ -434,6 +591,7 @@
 
     function toggleForm() {
       const form = document.getElementById("addForm");
+      if(inShoplistView) { inShoplistView = false; document.getElementById("shoplistView").classList.remove("show"); }
       form.classList.toggle("show");
       if(form.classList.contains("show") && document.getElementById("stepsInputContainer").children.length === 0) {
         addStepInput();
