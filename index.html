@@ -57,7 +57,7 @@
   <!-- Categorie Navigatie -->
   <div class="cat-nav" id="catNav"></div>
 
-  <input type="text" id="search" placeholder="Zoek een recept..." oninput="renderApp()">
+  <input type="text" id="search" placeholder="Zoek op titel, ingrediënt of categorie..." oninput="renderApp()">
 
   <!-- Alfabet navigatie -->
   <div class="alphabet-nav" id="alphabetNav"></div>
@@ -117,7 +117,7 @@
     }
 
     function renderApp() {
-      const searchTerm = document.getElementById("search").value.toLowerCase();
+      const searchTerm = document.getElementById("search").value.toLowerCase().trim();
       const catNavElement = document.getElementById("catNav");
       const alphabetNavElement = document.getElementById("alphabetNav");
       const paginationElement = document.getElementById("paginationContainer");
@@ -155,10 +155,35 @@
 
       document.getElementById("catList").innerHTML = cats.map(c => `<option value="${c}">`).join("");
 
-      // Bepaal de lijst op basis van zoekterm (over ALLE recepten) of actieve categorie
+      // Uitgebreide zoekfunctie: zoekt in titel, categorie, ingrediënten én bereiding
       let gefilterde = [];
       if (searchTerm) {
-        gefilterde = recipes.filter(r => (r.titel && r.titel.toLowerCase().includes(searchTerm)));
+        gefilterde = recipes.filter(r => {
+          const titelMatch = r.titel && r.titel.toLowerCase().includes(searchTerm);
+          const catMatch = r.categorie && r.categorie.toLowerCase().includes(searchTerm);
+          
+          // Ingrediënten doorzoeken (zowel string als array)
+          let ingString = "";
+          try {
+            let parsedIng = parseIng(r.ingredienten);
+            ingString = parsedIng.join(" ").toLowerCase();
+          } catch(e) {
+            ingString = (r.ingredienten || "").toLowerCase();
+          }
+          const ingMatch = ingString.includes(searchTerm);
+
+          // Bereiding doorzoeken
+          let stepString = "";
+          try {
+            let parsedSteps = parseStepsRaw(r.bereiding);
+            stepString = parsedSteps.join(" ").toLowerCase();
+          } catch(e) {
+            stepString = (r.bereiding || "").toLowerCase();
+          }
+          const stepMatch = stepString.includes(searchTerm);
+
+          return titelMatch || catMatch || ingMatch || stepMatch;
+        });
       } else {
         gefilterde = recipes.filter(r => (r.categorie || "Overig") === huidigeCategorie);
       }
@@ -241,6 +266,21 @@
           return ingData;
       }
       return [];
+    }
+
+    function parseStepsRaw(bData) {
+      let bList = [];
+      if (typeof bData === 'string') {
+          try { bList = JSON.parse(bData); } catch(e) {}
+      } else if (Array.isArray(bData)) {
+          bList = bData;
+      }
+      let allText = [];
+      bList.forEach(s => {
+        if (s.title) allText.push(s.title);
+        if (Array.isArray(s.lines)) allText.push(...s.lines);
+      });
+      return allText;
     }
 
     function parseSteps(bData) {
@@ -360,7 +400,7 @@
     }
 
     function selectCategory(cat) { 
-      document.getElementById("search").value = ""; // Wis zoekopdracht bij categorieklik
+      document.getElementById("search").value = ""; 
       huidigeCategorie = cat; 
       index = 0; 
       renderApp(); 
@@ -448,16 +488,16 @@
     }
 
     document.getElementById("next").onclick = () => {
-      const searchTerm = document.getElementById("search").value.toLowerCase();
-      let gefilterde = searchTerm ? recipes.filter(r => r.titel && r.titel.toLowerCase().includes(searchTerm)) : recipes.filter(r => (r.categorie || "Overig") === huidigeCategorie);
+      const searchTerm = document.getElementById("search").value.toLowerCase().trim();
+      let gefilterde = searchTerm ? recipes.filter(r => (r.titel && r.titel.toLowerCase().includes(searchTerm)) || (r.categorie && r.categorie.toLowerCase().includes(searchTerm))) : recipes.filter(r => (r.categorie || "Overig") === huidigeCategorie);
       if (gefilterde.length === 0) return;
       index = (index + 1) % gefilterde.length;
       renderApp();
     };
 
     document.getElementById("prev").onclick = () => {
-      const searchTerm = document.getElementById("search").value.toLowerCase();
-      let gefilterde = searchTerm ? recipes.filter(r => r.titel && r.titel.toLowerCase().includes(searchTerm)) : recipes.filter(r => (r.categorie || "Overig") === huidigeCategorie);
+      const searchTerm = document.getElementById("search").value.toLowerCase().trim();
+      let gefilterde = searchTerm ? recipes.filter(r => (r.titel && r.titel.toLowerCase().includes(searchTerm)) || (r.categorie && r.categorie.toLowerCase().includes(searchTerm))) : recipes.filter(r => (r.titel && r.titel.toLowerCase().includes(searchTerm)));
       if (gefilterde.length === 0) return;
       index = (index - 1 + gefilterde.length) % gefilterde.length;
       renderApp();
