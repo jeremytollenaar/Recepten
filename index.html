@@ -101,15 +101,17 @@
     let inTrashView = false;
 
     async function fetchRecipes() {
-      // Haal actieve recepten op (waar deleted_at leeg/null is)
-      const { data, error } = await db.from('recepten').select('*').is('deleted_at', null);
+      // Haal actieve recepten op
+      const { data, error } = await db.from('recepten').select('*');
       if (error) { console.error(error); return; }
       recipes = data || [];
 
-      // Haal prullenbak recepten op
-      const { data: trashData, error: trashError } = await db.from('recepten').select('*').not('deleted_at', 'is', null);
+      // Haal items op uit de losse prullenbak tabel (zorg dat jouw tabel in Supabase 'prullenbak' heet)
+      const { data: trashData, error: trashError } = await db.from('prullenbak').select('*');
       if (!trashError) {
         trashRecipes = trashData || [];
+      } else {
+        console.warn("Kon prullenbak tabel niet laden:", trashError.message);
       }
 
       document.getElementById("toggleTrash").textContent = `🗑️ Prullenbak (${trashRecipes.length})`;
@@ -146,7 +148,7 @@
 
       if (!cats.includes(huidigeCategorie)) huidigeCategorie = cats[0];
 
-      // Bouw categorie knoppen op, EXPLICIT GEEN PRULLENBAK VOOR "OVERIG"
+      // Categorie knoppen bouwen (GEEN prullenbakje bij Overig)
       document.getElementById("catNav").innerHTML = cats.map(c => `
         <div class="cat-pill ${huidigeCategorie === c ? 'active' : ''}">
           <button class="cat-btn" onclick="selectCategory('${c}')">${c}</button>
@@ -272,20 +274,68 @@
 
     async function moveToTrash(id) {
       if (!confirm("Weet je zeker dat je dit recept naar de prullenbak wilt verplaatsen?")) return;
-      const { error } = await db.from('recepten').update({ deleted_at: new Date().toISOString() }).eq('id', id);
-      if (error) alert("Fout: " + error.message);
-      else fetchRecipes();
+      
+      // Zoek het recept in de actieve lijst
+      const recipeToMove = recipes.find(r => r.id === id);
+      if (!recipeToMove) return;
+
+      // Voeg toe aan de 'prullenbak' tabel (zonder id zodat Supabase een nieuwe kan aanmaken of met exact dezelfde data)
+      const { error: insertError } = await db.from('prullenbak').insert([{
+        titel: recipeToMove.titel,
+        categorie: recipeToMove.categorie,
+        tijd: recipeToMove.tijd,
+        moeilijkheid: recipeToMove.moeilijkheid,
+        ingredienten: recipeToMove.ingredienten,
+        bereiding: recipeToMove.bereiding
+      }]);
+
+      if (insertError) {
+        alert("Fout bij verplaatsen naar prullenbak: " + insertError.message);
+        return;
+      }
+
+      // Verwijder uit de actieve 'recepten' tabel
+      const { error: deleteError } = await db.from('recepten').delete().eq('id', id);
+      if (deleteError) {
+        alert("Fout bij opschonen: " + deleteError.message);
+        return;
+      }
+
+      fetchRecipes();
     }
 
     async function restoreRecipe(id) {
-      const { error } = await db.from('recepten').update({ deleted_at: null }).eq('id', id);
-      if (error) alert("Fout: " + error.message);
-      else fetchRecipes();
+      const recipeToRestore = trashRecipes.find(r => r.id === id);
+      if (!recipeToRestore) return;
+
+      // Zet terug in de 'recepten' tabel
+      const { error: insertError } = await db.from('recepten').insert([{
+        titel: recipeToRestore.titel,
+        categorie: recipeToRestore.categorie,
+        tijd: recipeToRestore.tijd,
+        moeilijkheid: recipeToRestore.moeilijkheid,
+        ingredienten: recipeToRestore.ingredienten,
+        bereiding: recipeToRestore.bereiding
+      }]);
+
+      if (insertError) {
+        alert("Fout bij terugzetten: " + insertError.message);
+        return;
+      }
+
+      // Verwijder uit de 'prullenbak' tabel
+      const { error: deleteError } = await db.from('prullenbak').delete().eq('id', id);
+      if (deleteError) {
+        alert("Fout bij opschonen prullenbak: " + deleteError.message);
+        return;
+      }
+
+      fetchRecipes();
     }
 
     async function deletePermanent(id) {
       if (!confirm("Wil je dit recept definitief wissen? Dit kan niet ongedaan worden gemaakt.")) return;
-      const { error } = await db.from('recepten').delete().eq('id', id);
+      const { error } = await db.from('prullenbak').delete().eq('id', id);
       if (error) alert("Fout: " + error.message);
       else fetchRecipes();
     }
@@ -377,8 +427,7 @@
         tijd, 
         moeilijkheid, 
         ingredienten: JSON.stringify(ingredientenArray), 
-        bereiding: JSON.stringify(bereidingArray),
-        deleted_at: null 
+        bereiding: JSON.stringify(bereidingArray) 
       };
 
       const { error } = await db.from('recepten').insert([payload]);
