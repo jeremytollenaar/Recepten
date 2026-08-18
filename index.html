@@ -68,8 +68,10 @@
   <div id="addForm">
     <h2>Nieuw recept</h2>
     <input type="text" id="newTitle" placeholder="Titel van recept">
-    <input type="text" id="newCat" placeholder="Categorie (bijv. Landen, Pasta)" list="catList">
+    <input type="text" id="newCat" placeholder="Categorie (bijv. Pasta, Salade)" list="catList">
     <datalist id="catList"></datalist>
+    <input type="text" id="newTime" placeholder="Bereidingstijd (bijv. 20 min)">
+    <input type="text" id="newDifficulty" placeholder="Moeilijkheid (bijv. Makkelijk)">
     
     <textarea id="newIngredients" placeholder="Ingrediënten (één per regel)" rows="4"></textarea>
     
@@ -92,7 +94,7 @@
     const db = supabase.createClient('https://tnwdxmzvrmfwpwhcmkto.supabase.co', 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX');
     let recipes = [];
     let index = 0;
-    let huidigeCategorie = "Landen";
+    let huidigeCategorie = "Overig";
 
     async function fetchRecipes() {
       const { data, error } = await db.from('recepten').select('*');
@@ -103,25 +105,28 @@
 
     function renderApp() {
       const searchTerm = document.getElementById("search").value.toLowerCase();
-      const uniekeCats = [...new Set(recipes.map(r => r.categorie).filter(c => c && c.trim() !== ""))];
-      const cats = ["Landen", ...uniekeCats.filter(c => c !== "Landen")];
+      
+      // Zoek alle unieke categorieën. Als er geen zijn, gebruik "Overig".
+      let cats = [...new Set(recipes.map(r => r.categorie).filter(c => c && c.trim() !== ""))];
+      if (cats.length === 0) cats = ["Overig"];
 
-      if (!cats.includes(huidigeCategorie)) huidigeCategorie = "Landen";
+      // Zorg dat huidigeCategorie altijd een geldige optie is
+      if (!cats.includes(huidigeCategorie)) huidigeCategorie = cats[0];
 
-      // Bouw categorie knoppen op
+      // Bouw categorie knoppen op (IEDERE categorie kan verwijderd worden)
       document.getElementById("catNav").innerHTML = cats.map(c => `
         <div class="cat-pill ${huidigeCategorie === c ? 'active' : ''}">
           <button class="cat-btn" onclick="selectCategory('${c}')">${c}</button>
-          ${c !== "Landen" ? `<button class="cat-del-btn" onclick="verwijderCategorie(event, '${c}')" title="Verwijder categorie">🗑️</button>` : ''}
+          <button class="cat-del-btn" onclick="verwijderCategorie(event, '${c}')" title="Verwijder categorie">🗑️</button>
         </div>
       `).join("");
 
       document.getElementById("catList").innerHTML = cats.map(c => `<option value="${c}">`).join("");
 
       // Filteren
-      let gefilterde = recipes.filter(r => (r.categorie || "Landen") === huidigeCategorie);
+      let gefilterde = recipes.filter(r => (r.categorie || "Overig") === huidigeCategorie);
       if (searchTerm) {
-        gefilterde = gefilterde.filter(r => (r.titel && r.titel.toLowerCase().includes(searchTerm)) || (r.ingredienten && JSON.stringify(r.ingredienten).toLowerCase().includes(searchTerm)));
+        gefilterde = gefilterde.filter(r => (r.titel && r.titel.toLowerCase().includes(searchTerm)));
       }
 
       renderAlphabetNav(gefilterde);
@@ -130,7 +135,7 @@
       const counter = document.getElementById("counter");
 
       if (gefilterde.length === 0) {
-        carousel.innerHTML = `<div class="recipe active"><p>Geen recepten gevonden.</p></div>`;
+        carousel.innerHTML = `<div class="recipe active"><p>Geen recepten gevonden in deze categorie.</p></div>`;
         counter.textContent = "";
         return;
       }
@@ -138,52 +143,58 @@
       if (index >= gefilterde.length) index = 0;
 
       carousel.innerHTML = gefilterde.map((r, i) => {
-        // FOOTPROOF INGREDIËNTEN PARSER
-        let ingData = r.ingredienten || "";
-        let ingList = [];
-        if (Array.isArray(ingData)) {
-            ingList = ingData;
-        } else if (typeof ingData === 'string') {
-            if(ingData.startsWith('[')) {
-               try { ingList = JSON.parse(ingData); } catch(e) { ingList = ingData.split('\n'); }
-            } else {
-               ingList = ingData.split('\n');
-            }
-        }
-        let ingHtml = ingList.filter(x => x.trim() !== "").map(x => `<li>${x}</li>`).join("");
-
-        // FOOTPROOF BEREIDING PARSER
-        let stepsHtml = "";
-        let stappenData = r.bereiding || [];
-        if (typeof stappenData === 'string') {
-            try { stappenData = JSON.parse(stappenData); } catch(e) { stappenData = []; }
-        }
         
-        if (Array.isArray(stappenData)) {
-            stepsHtml = stappenData.map((s, idx) => {
-                let sTitle = s.title || "Stap";
-                let lines = Array.isArray(s.lines) ? s.lines : [s.lines || ""];
-                let linesHtml = lines.filter(l => l.trim() !== "").map(line => `<li>${line}</li>`).join("");
-                
-                return `
-                <div class="step-frame">
-                    <div class="step-header">
-                        <span class="step-number-kader">${idx + 1}.</span>
-                        <span class="step-title-display">${sTitle}</span>
-                    </div>
-                    <ul class="step-list">${linesHtml}</ul>
-                </div>`;
-            }).join("");
+        // --- INGREDIËNTEN UITPAKKEN ---
+        let ingList = [];
+        if (typeof r.ingredienten === 'string') {
+            try { ingList = JSON.parse(r.ingredienten); } // Probeer uit te pakken als JSON
+            catch(e) { ingList = r.ingredienten.split('\n'); } // Als dat mislukt, scheid op enters
+        } else if (Array.isArray(r.ingredienten)) {
+            ingList = r.ingredienten;
         }
+        let ingHtml = ingList.filter(x => x.trim() !== "").map(x => `<li>${x.replace(/["\[\]]/g, '')}</li>`).join("");
+
+        // --- BEREIDING UITPAKKEN ---
+        let bList = [];
+        if (typeof r.bereiding === 'string') {
+            try { bList = JSON.parse(r.bereiding); } catch(e) { console.warn("Kon bereiding niet lezen", r.bereiding); }
+        } else if (Array.isArray(r.bereiding)) {
+            bList = r.bereiding;
+        }
+
+        let stepsHtml = bList.map((s, idx) => {
+            let lines = Array.isArray(s.lines) ? s.lines : [s.lines];
+            let linesHtml = lines.filter(l => l && l.trim() !== "").map(line => `<li>${line}</li>`).join("");
+            if(!linesHtml) return ""; // Lege stap overslaan
+
+            return `
+            <div class="step-frame">
+                <div class="step-header">
+                    <span class="step-number-kader">${idx + 1}.</span>
+                    <span class="step-title-display">${s.title || 'Stap'}</span>
+                </div>
+                <ul class="step-list">${linesHtml}</ul>
+            </div>`;
+        }).join("");
+
+        // Tijd & Moeilijkheid format
+        let metaInfo = [];
+        if (r.tijd) metaInfo.push(`<strong>Tijd:</strong> ${r.tijd}`);
+        if (r.moeilijkheid) metaInfo.push(`<strong>Moeilijkheid:</strong> ${r.moeilijkheid}`);
+        let metaHtml = metaInfo.length > 0 ? `<p>${metaInfo.join(' &middot; ')}</p>` : '';
 
         return `
         <div class="recipe ${i === index ? 'active' : ''}">
             <h2>${r.titel || 'Naamloos Recept'}</h2>
+            ${metaHtml}
+            
             <h3>Ingrediënten</h3>
             <ul class="step-list">${ingHtml || '<li>Geen ingrediënten toegevoegd.</li>'}</ul>
+            
             <h3>Bereiding</h3>
-            <div>${stepsHtml || '<p>Geen stappen toegevoegd.</p>'}</div>
-            <button class="remove-step-btn" onclick="deleteRecipe(${r.id})" style="margin-top: 15px;">Verwijderen</button>
+            <div style="margin-top:10px;">${stepsHtml || '<p style="color:#aaa;">Geen bereidingsstappen toegevoegd.</p>'}</div>
+            
+            <button class="remove-step-btn" onclick="deleteRecipe(${r.id})" style="margin-top: 20px;">Verwijderen</button>
         </div>`;
       }).join("");
 
@@ -216,17 +227,15 @@
     function selectCategory(cat) { huidigeCategorie = cat; index = 0; renderApp(); }
 
     async function verwijderCategorie(event, cat) {
-      event.stopPropagation(); // Voorkomt conflict met de categorie-knop zelf
-      if (!confirm(`Weet je zeker dat je categorie '${cat}' wilt verwijderen? De recepten worden teruggezet naar 'Landen'.`)) return;
+      event.stopPropagation();
+      if (!confirm(`Weet je zeker dat je de categorie '${cat}' wilt verwijderen? De recepten worden verplaatst naar 'Overig'.`)) return;
       
-      // Update alles met deze categorie direct op de database
-      const { error } = await db.from('recepten').update({ categorie: 'Landen' }).eq('categorie', cat);
+      const { error } = await db.from('recepten').update({ categorie: 'Overig' }).eq('categorie', cat);
       if (error) {
           alert("Fout bij verwijderen: " + error.message);
           return;
       }
       
-      huidigeCategorie = "Landen";
       fetchRecipes();
     }
 
@@ -236,7 +245,7 @@
       div.className = "step-input-group";
       div.innerHTML = `
         <input type="text" class="step-title" placeholder="Titel stap (bijv. Voorbereiding)" value="${title}">
-        <textarea class="step-lines" placeholder="Beschrijving">${line}</textarea>
+        <textarea class="step-lines" placeholder="Beschrijving (één punt per regel)" rows="3">${line}</textarea>
         <button type="button" class="remove-step-btn" onclick="this.parentElement.remove()">Verwijder stap</button>
       `;
       container.appendChild(div);
@@ -252,21 +261,37 @@
 
     async function saveRecipe() {
       const titel = document.getElementById("newTitle").value.trim();
-      const categorie = document.getElementById("newCat").value.trim() || "Landen";
-      const ingredienten = document.getElementById("newIngredients").value.trim();
+      const categorie = document.getElementById("newCat").value.trim() || "Overig";
+      const tijd = document.getElementById("newTime").value.trim();
+      const moeilijkheid = document.getElementById("newDifficulty").value.trim();
       
-      const bereiding = [];
+      // Ingrediënten als array maken
+      const ingText = document.getElementById("newIngredients").value;
+      const ingredientenArray = ingText.split("\n").map(x => x.trim()).filter(x => x);
+      
+      // Bereiding als array van objecten maken
+      const bereidingArray = [];
       document.querySelectorAll(".step-input-group").forEach(group => {
         const title = group.querySelector(".step-title").value.trim();
-        const desc = group.querySelector(".step-lines").value.trim();
-        if (title || desc) {
-          bereiding.push({ title: title || "Stap", lines: [desc] });
+        const descText = group.querySelector(".step-lines").value;
+        const descLines = descText.split("\n").map(x => x.trim()).filter(x => x);
+        
+        if (title || descLines.length > 0) {
+          bereidingArray.push({ title: title || "Stap", lines: descLines });
         }
       });
 
       if (!titel) { alert("Vul op zijn minst een titel in."); return; }
 
-      const payload = { titel, categorie, ingredienten, bereiding };
+      // We zetten de arrays om in JSON-strings voor de database, dit voorkomt storingen ongeacht je databasetype
+      const payload = { 
+        titel, 
+        categorie, 
+        tijd, 
+        moeilijkheid, 
+        ingredienten: JSON.stringify(ingredientenArray), 
+        bereiding: JSON.stringify(bereidingArray) 
+      };
 
       const { error } = await db.from('recepten').insert([payload]);
       if (error) { alert("Fout: " + error.message); return; }
@@ -276,6 +301,8 @@
       // Formulier resetten
       document.getElementById("newTitle").value = "";
       document.getElementById("newCat").value = "";
+      document.getElementById("newTime").value = "";
+      document.getElementById("newDifficulty").value = "";
       document.getElementById("newIngredients").value = "";
       document.getElementById("stepsInputContainer").innerHTML = "";
       document.getElementById("addForm").classList.remove("show");
@@ -284,21 +311,21 @@
     }
 
     async function deleteRecipe(id) {
-      if (!confirm("Recept verwijderen?")) return;
+      if (!confirm("Weet je zeker dat je dit recept wilt verwijderen?")) return;
       const { error } = await db.from('recepten').delete().eq('id', id);
       if (error) alert("Fout: " + error.message);
       else fetchRecipes();
     }
 
     document.getElementById("next").onclick = () => {
-      const gefilterde = recipes.filter(r => (r.categorie || "Landen") === huidigeCategorie);
+      const gefilterde = recipes.filter(r => (r.categorie || "Overig") === huidigeCategorie);
       if (gefilterde.length === 0) return;
       index = (index + 1) % gefilterde.length;
       renderApp();
     };
 
     document.getElementById("prev").onclick = () => {
-      const gefilterde = recipes.filter(r => (r.categorie || "Landen") === huidigeCategorie);
+      const gefilterde = recipes.filter(r => (r.categorie || "Overig") === huidigeCategorie);
       if (gefilterde.length === 0) return;
       index = (index - 1 + gefilterde.length) % gefilterde.length;
       renderApp();
