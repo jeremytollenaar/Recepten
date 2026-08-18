@@ -4,27 +4,41 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta charset="UTF-8">
   <title>Receptenboek</title>
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#211d1d">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body { font-family: system-ui, sans-serif; background: #1a1a1a; color: #e0e0e0; margin: 0; padding: 16px; text-align: center; }
     h1 { color: #fff; margin-bottom: 5px; }
     p { color: #aaa; }
 
-    /* Categorie Navigatie met wis-optie */
-    .cat-nav { display: flex; justify-content: center; gap: 8px; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    /* Categorie & Alfabet Navigatie */
+    .cat-nav { display: flex; justify-content: center; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
     .cat-pill { display: flex; align-items: center; background: #2d2d2d; border: 1px solid #ab7c7c; border-radius: 8px; overflow: hidden; }
     .cat-pill.active { background: #ab7c7c; }
     .cat-btn { background: transparent; color: #ab7c7c; border: none; padding: 8px 12px; cursor: pointer; font-weight: bold; }
     .cat-pill.active .cat-btn { color: #fff; }
     .cat-del-btn { background: transparent; border: none; color: #d9534f; padding: 0 8px; cursor: pointer; font-size: 0.9rem; }
-    .cat-del-btn:hover { color: #ff6b6b; }
-
-    .carousel { max-width: 600px; margin: 0 auto; }
-    .recipe { display: none; background: #2d2d2d; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.4); text-align: left; opacity: 0; transition: opacity 0.3s ease; margin-bottom: 1rem; }
-    .recipe.active { display: block; opacity: 1; }
     
+    .alphabet-nav { margin-bottom: 1.5rem; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; max-width: 600px; margin-left: auto; margin-right: auto; }
+    .alphabet-btn { background: #2d2d2d; color: #ab7c7c; border: 1px solid #ab7c7c; padding: 5px 8px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: bold; }
+    .alphabet-btn:hover:not(:disabled) { background: #ab7c7c; color: #fff; }
+    .alphabet-btn:disabled { background: #222; color: #555; border-color: #333; cursor: not-allowed; }
+
+    #search { width: 100%; max-width: 400px; padding: 12px; border-radius: 10px; border: 1px solid #444; background: #2d2d2d; color: #fff; margin-bottom: 1rem; box-sizing: border-box; }
+
+    /* Recept Kaart & Stappen */
+    .carousel { max-width: 600px; margin: 0 auto; }
+    .recipe { display: none; background: #2d2d2d; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.4); text-align: left; margin-bottom: 1rem; }
+    .recipe.active { display: block; }
+    .recipe h2 { color: #fff; margin-top: 0; }
+    .recipe h3 { color: #ab7c7c; border-bottom: 1px solid #444; padding-bottom: 4px; margin-top: 1.2rem; }
+
+    .step-frame { background-color: #363636; border: 1px solid #444; border-radius: 10px; padding: 12px; margin-top: 0.8rem; }
+    .step-header { display: flex; align-items: center; margin-bottom: 0.4rem; border-bottom: 1px solid #444; padding-bottom: 0.4rem; }
+    .step-number-kader { font-weight: bold; color: #ab7c7c; margin-right: 0.8rem; }
+    .step-title-display { font-weight: bold; color: #fff; }
+    .step-list { margin: 0; padding-left: 1.2rem; color: #ccc; line-height: 1.5; }
+
+    /* Knoppen & Formulier */
     .nav-btn, .save-recipe-btn, .add-step-btn, .remove-step-btn, #toggleAdd { background: #ab7c7c; color: #fff; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; margin: 5px; }
     .remove-step-btn { background: #d9534f; }
     
@@ -37,22 +51,34 @@
 <body>
 
   <h1>Receptenboek</h1>
-  
-  <!-- Categorie Navigatiebalk -->
+  <p>Kies een categorie of blader door je recepten.</p>
+
+  <!-- Categorie Navigatie -->
   <div class="cat-nav" id="catNav"></div>
 
-  <button id="toggleAdd" onclick="toggleForm()">+ Recept toevoegen</button>
+  <input type="text" id="search" placeholder="Zoek een recept..." oninput="renderApp()">
+
+  <!-- Alfabet navigatie -->
+  <div class="alphabet-nav" id="alphabetNav"></div>
+
+  <div style="margin-bottom: 1.5rem;">
+    <button id="toggleAdd" onclick="toggleForm()">+ Recept toevoegen</button>
+  </div>
 
   <div id="addForm">
     <h2>Nieuw recept</h2>
-    <input type="text" id="newTitle" placeholder="Titel">
-    <input type="text" id="newCat" placeholder="Categorie (bijv. Pasta)" list="catList">
+    <input type="text" id="newTitle" placeholder="Titel van recept">
+    <input type="text" id="newCat" placeholder="Categorie (bijv. Landen, Pasta)" list="catList">
     <datalist id="catList"></datalist>
-    <textarea id="newIngredients" placeholder="Ingrediënten (per regel)" rows="3"></textarea>
+    <input type="text" id="newTime" placeholder="Bereidingstijd (bijv. 20 min)">
+    <input type="text" id="newDifficulty" placeholder="Moeilijkheid">
     
-    <label style="font-weight: bold;">Bereidingsstappen:</label>
-    <div id="stepsInputContainer"></div>
+    <textarea id="newIngredients" placeholder="Ingrediënten (één per regel)" rows="4"></textarea>
+    
+    <label style="font-weight: bold; color: #ccc;">Bereidingsstappen:</label>
+    <div id="stepsInputContainer" style="margin-top: 0.5rem;"></div>
     <button type="button" class="add-step-btn" onclick="addStepInput()">+ Stap toevoegen</button>
+    
     <button class="save-recipe-btn" onclick="saveRecipe()" style="width:100%">Opslaan</button>
   </div>
 
@@ -61,6 +87,7 @@
   <div style="margin-top: 20px;">
     <button id="prev" class="nav-btn">◀ Vorige</button>
     <button id="next" class="nav-btn">Volgende ▶</button>
+    <div id="counter" style="margin-top: 10px; color: #aaa;"></div>
   </div>
 
   <script>
@@ -70,60 +97,112 @@
     let huidigeCategorie = "Landen";
 
     async function fetchRecipes() {
-      const { data } = await db.from('recepten').select('*');
+      const { data, error } = await db.from('recepten').select('*');
+      if (error) { console.error(error); return; }
       recipes = data || [];
       renderApp();
     }
 
     function renderApp() {
-      // Filter alleen categorieën die echt gevuld zijn (geen lege of null waarden)
+      const searchTerm = document.getElementById("search").value.toLowerCase();
       const uniekeCats = [...new Set(recipes.map(r => r.categorie).filter(c => c && c.trim() !== ""))];
       const cats = ["Landen", ...uniekeCats.filter(c => c !== "Landen")];
 
-      // Als de huidige categorie niet meer bestaat, terug naar Landen
       if (!cats.includes(huidigeCategorie)) huidigeCategorie = "Landen";
 
-      // Bouw de categorie knoppen met een wis-knopje erachter
-      const nav = document.getElementById("catNav");
-      nav.innerHTML = cats.map(c => `
+      // Bouw categorie knoppen
+      document.getElementById("catNav").innerHTML = cats.map(c => `
         <div class="cat-pill ${huidigeCategorie === c ? 'active' : ''}">
           <button class="cat-btn" onclick="selectCategory('${c}')">${c}</button>
           ${c !== "Landen" ? `<button class="cat-del-btn" onclick="verwijderCategorie('${c}')" title="Verwijder categorie">🗑️</button>` : ''}
         </div>
       `).join("");
 
-      // Vul de datalist voor het formulier
       document.getElementById("catList").innerHTML = cats.map(c => `<option value="${c}">`).join("");
 
-      // Filter recepten
-      const gefilterde = recipes.filter(r => (r.categorie || "Landen") === huidigeCategorie);
+      // Filter op categorie en zoekterm
+      let gefilterde = recipes.filter(r => (r.categorie || "Landen") === huidigeCategorie);
+      if (searchTerm) {
+        gefilterde = gefilterde.filter(r => (r.titel && r.titel.toLowerCase().includes(searchTerm)) || (r.ingredienten && r.ingredienten.some(ing => ing.toLowerCase().includes(searchTerm))));
+      }
+
+      renderAlphabetNav(gefilterde);
+
       const carousel = document.getElementById("carousel");
+      const counter = document.getElementById("counter");
 
       if (gefilterde.length === 0) {
-        carousel.innerHTML = `<div class="recipe active"><p>Geen recepten in categorie '${huidigeCategorie}'.</p></div>`;
+        carousel.innerHTML = `<div class="recipe active"><p>Geen recepten gevonden.</p></div>`;
+        counter.textContent = "";
         return;
       }
 
       if (index >= gefilterde.length) index = 0;
 
-      carousel.innerHTML = gefilterde.map((r, i) => `
-        <div class="recipe ${i === index ? 'active' : ''}">
-          <h2>${r.titel}</h2>
-          <p><strong>Categorie:</strong> ${r.categorie || 'Landen'}</p>
-          <button class="remove-step-btn" onclick="deleteRecipe(${r.id})">Verwijderen</button>
-        </div>
-      `).join("");
+      carousel.innerHTML = gefilterde.map((r, i) => {
+        let ingList = Array.isArray(r.ingredienten) ? r.ingredienten : (r.ingredienten ? r.ingredienten.split('\n') : []);
+        let ingHtml = ingList.map(x => `<li>${x}</li>`).join("");
+
+        let stepsHtml = "";
+        if (r.bereiding && Array.isArray(r.bereiding)) {
+          stepsHtml = r.bereiding.map((s, idx) => {
+            let lines = Array.isArray(s.lines) ? s.lines : [s.lines || ''];
+            let linesHtml = lines.map(line => `<li>${line}</li>`).join("");
+            return `
+              <div class="step-frame">
+                <div class="step-header">
+                  <span class="step-number-kader">${idx + 1}.</span>
+                  <span class="step-title-display">${s.title || 'Stap'}</span>
+                </div>
+                <ul class="step-list">${linesHtml}</ul>
+              </div>
+            `;
+          }).join("");
+        }
+
+        return `
+          <div class="recipe ${i === index ? 'active' : ''}">
+            <h2>${r.titel || 'Naamloos'}</h2>
+            <p><strong>Tijd:</strong> ${r.tijd || '-'} &middot; <strong>Moeilijkheid:</strong> ${r.moeilijkheid || '-'}</p>
+            <h3>Ingrediënten</h3>
+            <ul class="step-list">${ingHtml}</ul>
+            <h3>Bereiding</h3>
+            <div>${stepsHtml}</div>
+            <button class="remove-step-btn" onclick="deleteRecipe(${r.id})" style="margin-top: 15px;">Verwijderen</button>
+          </div>
+        `;
+      }).join("");
+
+      counter.textContent = `Recept ${index + 1} van ${gefilterde.length}`;
     }
 
-    function selectCategory(cat) {
-      huidigeCategorie = cat;
-      index = 0;
-      renderApp();
+    function renderAlphabetNav(gefilterde) {
+      const navContainer = document.getElementById("alphabetNav");
+      navContainer.innerHTML = "";
+      const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+      alphabet.forEach(letter => {
+        const btn = document.createElement("button");
+        btn.className = "alphabet-btn";
+        btn.textContent = letter;
+        const hasRecipe = gefilterde.some(r => r.titel && r.titel.toUpperCase().startsWith(letter));
+
+        if (!hasRecipe) {
+          btn.disabled = true;
+        } else {
+          btn.onclick = () => {
+            const foundIndex = gefilterde.findIndex(r => r.titel && r.titel.toUpperCase().startsWith(letter));
+            if (foundIndex !== -1) { index = foundIndex; renderApp(); }
+          };
+        }
+        navContainer.appendChild(btn);
+      });
     }
+
+    function selectCategory(cat) { huidigeCategorie = cat; index = 0; renderApp(); }
 
     async function verwijderCategorie(cat) {
-      if (!confirm(`Weet je zeker dat je categorie '${cat}' wilt verwijderen? De recepten worden teruggezet naar 'Landen'.`)) return;
-
+      if (!confirm(`Categorie '${cat}' verwijderen? Recepten gaan naar 'Landen'.`)) return;
       const teUpdaten = recipes.filter(r => r.categorie === cat);
       for (let r of teUpdaten) {
         await db.from('recepten').update({ categorie: 'Landen' }).eq('id', r.id);
@@ -139,7 +218,7 @@
       div.innerHTML = `
         <input type="text" class="step-title" placeholder="Titel stap (bijv. Voorbereiding)" value="${title}">
         <textarea class="step-lines" placeholder="Beschrijving">${line}</textarea>
-        <button type="button" class="remove-step-btn" onclick="this.parentElement.remove()">Verwijderen</button>
+        <button type="button" class="remove-step-btn" onclick="this.parentElement.remove()">Verwijder stap</button>
       `;
       container.appendChild(div);
     }
@@ -153,29 +232,35 @@
     }
 
     async function saveRecipe() {
-      const titel = document.getElementById("newTitle").value;
-      const categorie = document.getElementById("newCat").value || "Landen";
-      const ingredienten = document.getElementById("newIngredients").value.split("\n").filter(x => x.trim());
+      const titel = document.getElementById("newTitle").value.trim();
+      const categorie = document.getElementById("newCat").value.trim() || "Landen";
+      const tijd = document.getElementById("newTime").value.trim();
+      const moeilijkheid = document.getElementById("newDifficulty").value.trim();
+      const ingredienten = document.getElementById("newIngredients").value.split("\n").map(x => x.trim()).filter(x => x);
       
       const bereiding = [];
       document.querySelectorAll(".step-input-group").forEach(group => {
         bereiding.push({
-          title: group.querySelector(".step-title").value || "Stap",
-          lines: [group.querySelector(".step-lines").value]
+          title: group.querySelector(".step-title").value.trim() || "Stap",
+          lines: [group.querySelector(".step-lines").value.trim()].filter(x => x)
         });
       });
 
-      if (!titel) { alert("Vul een titel in."); return; }
+      if (!titel || ingredienten.length === 0) { alert("Vul ten minste een titel en ingrediënten in."); return; }
 
-      const { error } = await db.from('recepten').insert([{ titel, categorie, ingredienten, bereiding }]);
-      if (error) alert("Fout: " + error.message);
-      else { alert("Opgeslagen!"); fetchRecipes(); toggleForm(); }
+      const { error } = await db.from('recepten').insert([{ titel, categorie, tijd, moeilijkheid, ingredienten, bereiding }]);
+      if (error) { alert("Fout: " + error.message); return; }
+
+      alert("Recept opgeslagen!");
+      document.getElementById("addForm").classList.remove("show");
+      fetchRecipes();
     }
 
     async function deleteRecipe(id) {
       if (!confirm("Recept verwijderen?")) return;
-      await db.from('recepten').delete().eq('id', id);
-      fetchRecipes();
+      const { error } = await db.from('recepten').delete().eq('id', id);
+      if (error) alert("Fout: " + error.message);
+      else fetchRecipes();
     }
 
     document.getElementById("next").onclick = () => {
