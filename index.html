@@ -52,6 +52,31 @@
     .shop-item { display: flex; align-items: center; gap: 10px; background: #363636; padding: 8px 12px; border-radius: 6px; margin-bottom: 6px; }
     .shop-item input[type="checkbox"] { width: 20px; height: 20px; margin: 0; cursor: pointer; }
   </style>
+
+  <script>
+    // Globale variabelen direct bovenaan gedefinieerd om scope-fouten te voorkomen
+    var recipes = [];
+    var trashRecipes = [];
+    var shoppingList = [];
+    var index = 0;
+    var huidigeCategorie = "Overig";
+    var inTrashView = false;
+    var inShoplistView = false;
+
+    var activeTimer = null;
+    var timeLeft = 0;
+    var isPaused = false;
+    var currentRecipeName = "";
+    var db = null;
+
+    try {
+      trashRecipes = JSON.parse(localStorage.getItem('myTrashRecipes') || '[]');
+      shoppingList = JSON.parse(localStorage.getItem('myShoplist') || '[]');
+    } catch(e) {
+      trashRecipes = [];
+      shoppingList = [];
+    }
+  </script>
 </head>
 <body>
 
@@ -113,28 +138,23 @@
   </div>
 
   <script>
-    let recipes = [];
-    let trashRecipes = JSON.parse(localStorage.getItem('myTrashRecipes') || '[]');
-    let shoppingList = JSON.parse(localStorage.getItem('myShoplist') || '[]');
-    let index = 0;
-    let huidigeCategorie = "Overig";
-    let inTrashView = false;
-    let inShoplistView = false;
-
-    let activeTimer = null;
-    let timeLeft = 0;
-    let isPaused = false;
-    let currentRecipeName = "";
-
-    const supabaseUrl = 'https://tnwdxmzvrmfwpwhcmkto.supabase.co';
-    const supabaseKey = 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX';
-    
-    let db = null;
-    try {
-      db = window.supabase.createClient(supabaseUrl, supabaseKey);
-    } catch (err) {
-      console.error("Supabase init fout:", err);
-    }
+    // Initialiseer Supabase veilig zodra de pagina laadt
+    document.addEventListener("DOMContentLoaded", function() {
+      try {
+        const supabaseUrl = 'https://tnwdxmzvrmfwpwhcmkto.supabase.co';
+        const supabaseKey = 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX';
+        
+        if (window.supabase && typeof window.supabase.createClient === 'function') {
+          db = window.supabase.createClient(supabaseUrl, supabaseKey);
+          fetchRecipes();
+        } else {
+          console.error("Supabase SDK kon niet worden geladen.");
+          alert("Kan Supabase niet laden via de CDN.");
+        }
+      } catch (err) {
+        console.error("Fout bij Supabase setup:", err);
+      }
+    });
 
     async function fetchRecipes() {
       if (!db) return;
@@ -698,10 +718,6 @@
       index = (index - 1 + gefilterde.length) % gefilterde.length;
       renderApp();
     };
-
-    window.addEventListener('DOMContentLoaded', () => {
-      fetchRecipes();
-    });
   </script>
 </body>
 </html>
