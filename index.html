@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Landen receptenboek</title>
-  <!-- Supabase Client Library met cache-buster -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2?v=2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2?v=3"></script>
   <style>
     body {
       font-family: system-ui, sans-serif;
@@ -168,9 +167,12 @@
 
     .top-actions {
       margin-bottom: 1.5rem;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
     }
 
-    #toggleAdd {
+    #toggleAdd, #toggleTrash {
       background: #ab7c7c;
       color: #fff;
       border: none;
@@ -180,7 +182,7 @@
       font-size: 1rem;
       transition: background 0.2s;
     }
-    #toggleAdd:hover {
+    #toggleAdd:hover, #toggleTrash:hover {
       background: #8f6565;
     }
 
@@ -274,8 +276,8 @@
       color: #555;
     }
 
-    /* Boodschappenlijst popup */
-    #shoppingListPopup {
+    /* Boodschappenlijst & Prullenbak Popups */
+    #shoppingListPopup, #trashPopup {
       position: fixed;
       top: 50%;
       left: 50%;
@@ -284,17 +286,19 @@
       padding: 2rem;
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-      width: 400px;
+      width: 450px;
+      max-height: 80vh;
+      overflow-y: auto;
       display: none;
       text-align: left;
       z-index: 1000;
     }
 
-    #shoppingListPopup.show {
+    #shoppingListPopup.show, #trashPopup.show {
       display: block;
     }
 
-    #shoppingListPopup button {
+    .close-popup-btn {
       margin-top: 1rem;
       background: #ab7c7c;
       color: white;
@@ -302,6 +306,30 @@
       padding: 0.6rem 1rem;
       border-radius: 8px;
       cursor: pointer;
+    }
+
+    .trash-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f9f7f5;
+      padding: 0.6rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+      border: 1px solid #e0e0e0;
+    }
+
+    .restore-btn {
+      background: #5cb85c;
+      color: white;
+      border: none;
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .restore-btn:hover {
+      background: #4cae4c;
     }
   </style>
 </head>
@@ -317,6 +345,7 @@
 
   <div class="top-actions">
     <button id="toggleAdd" onclick="toggleForm()">Recept toevoegen</button>
+    <button id="toggleTrash" onclick="openTrash()">🗑️ Prullenbak</button>
   </div>
 
   <div id="addForm">
@@ -349,7 +378,14 @@
   <div id="shoppingListPopup">
     <h2>Boodschappenlijst</h2>
     <ul id="shoppingList"></ul>
-    <button onclick="closeShoppingList()">Sluiten</button>
+    <button class="close-popup-btn" onclick="closeShoppingList()">Sluiten</button>
+  </div>
+
+  <!-- Prullenbak popup -->
+  <div id="trashPopup">
+    <h2>Verwijderde recepten</h2>
+    <div id="trashList"><p style="color: #777;">Prullenbak is leeg.</p></div>
+    <button class="close-popup-btn" onclick="closeTrash()">Sluiten</button>
   </div>
 
   <script>
@@ -358,6 +394,7 @@
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let recipes = [];
+    let trashRecipes = [];
     let index = 0;
     let isEditing = false;
     let editId = null;
@@ -373,6 +410,16 @@
 
       recipes = data || [];
       renderRecipes();
+    }
+
+    async function fetchTrash() {
+      const { data, error } = await db.from('prullenbak').select('*');
+      if (error) {
+        console.error('Fout bij ophalen prullenbak:', error.message);
+        return;
+      }
+      trashRecipes = data || [];
+      renderTrashList();
     }
 
     function toggleForm() {
@@ -498,7 +545,7 @@
           <button class="copy-btn" onclick="copyIngredients(this)">Ingrediënten kopiëren</button>
           <button class="shop-btn" onclick='generateShoppingList(${JSON.stringify(ingList)})'>Boodschappenlijst</button>
           <button class="edit-btn" onclick="openEditForm(${i})">Aanpassen</button>
-          <button class="delete-btn" onclick="deleteRecipe(${r.id})">Verwijderen</button>
+          <button class="delete-btn" onclick="moveToTrash(${r.id})">Verwijderen</button>
 
           <h3>Bereiding</h3>
           <div class="steps-container">
@@ -601,16 +648,90 @@
       fetchRecipes();
     }
 
-    async function deleteRecipe(id) {
-      if (!confirm("Weet je zeker dat je dit recept wilt verwijderen?")) return;
+    async function moveToTrash(id) {
+      const recipeToMove = recipes.find(r => r.id === id);
+      if (!recipeToMove) return;
 
-      const { error } = await db.from('recepten').delete().eq('id', id);
+      if (!confirm(`Weet je zeker dat je "${recipeToMove.titel}" naar de prullenbak wilt verplaatsen?`)) return;
 
-      if (error) {
-        alert('Fout bij verwijderen: ' + error.message);
+      // 1. Voeg toe aan prullenbak tabel
+      const { error: insertError } = await db.from('prullenbak').insert([{
+        origineel_id: recipeToMove.id,
+        titel: recipeToMove.titel,
+        tijd: recipeToMove.tijd,
+        moeilijkheid: recipeToMove.moeilijkheid,
+        ingredienten: recipeToMove.ingredienten,
+        bereiding: recipeToMove.bereiding
+      }]);
+
+      if (insertError) {
+        alert('Fout bij verplaatsen naar prullenbak: ' + insertError.message);
+        return;
+      }
+
+      // 2. Verwijder uit actieve recepten tabel
+      const { error: deleteError } = await db.from('recepten').delete().eq('id', id);
+
+      if (deleteError) {
+        alert('Fout bij opschonen: ' + deleteError.message);
       } else {
         fetchRecipes();
+        fetchTrash();
       }
+    }
+
+    async function restoreRecipe(trashId) {
+      const itemToRestore = trashRecipes.find(t => t.id === trashId);
+      if (!itemToRestore) return;
+
+      // 1. Zet terug in recepten tabel (zonder de prullenbak ID)
+      const { error: insertError } = await db.from('recepten').insert([{
+        titel: itemToRestore.titel,
+        tijd: itemToRestore.tijd,
+        moeilijkheid: itemToRestore.moeilijkheid,
+        ingredienten: itemToRestore.ingredienten,
+        bereiding: itemToRestore.bereiding
+      }]);
+
+      if (insertError) {
+        alert('Fout bij terugzetten: ' + insertError.message);
+        return;
+      }
+
+      // 2. Verwijder uit prullenbak tabel
+      const { error: deleteError } = await db.from('prullenbak').delete().eq('id', trashId);
+
+      if (deleteError) {
+        alert('Fout bij opschonen prullenbak: ' + deleteError.message);
+      } else {
+        alert(`"${itemToRestore.titel}" is hersteld!`);
+        fetchRecipes();
+        fetchTrash();
+      }
+    }
+
+    function renderTrashList() {
+      const trashList = document.getElementById("trashList");
+      if (trashRecipes.length === 0) {
+        trashList.innerHTML = '<p style="color: #777;">Prullenbak is leeg.</p>';
+        return;
+      }
+
+      trashList.innerHTML = trashRecipes.map(t => `
+        <div class="trash-item">
+          <span><strong>${t.titel}</strong></span>
+          <button class="restore-btn" onclick="restoreRecipe(${t.id})">Herstel</button>
+        </div>
+      `).join("");
+    }
+
+    function openTrash() {
+      fetchTrash();
+      document.getElementById("trashPopup").classList.add("show");
+    }
+
+    function closeTrash() {
+      document.getElementById("trashPopup").classList.remove("show");
     }
 
     function copyIngredients(btn) {
@@ -667,6 +788,7 @@
     }
 
     fetchRecipes();
+    fetchTrash();
   </script>
 
 </body>
