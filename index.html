@@ -70,8 +70,6 @@
     <input type="text" id="newTitle" placeholder="Titel van recept">
     <input type="text" id="newCat" placeholder="Categorie (bijv. Landen, Pasta)" list="catList">
     <datalist id="catList"></datalist>
-    <input type="text" id="newTime" placeholder="Bereidingstijd (bijv. 20 min)">
-    <input type="text" id="newDifficulty" placeholder="Moeilijkheid">
     
     <textarea id="newIngredients" placeholder="Ingrediënten (één per regel)" rows="4"></textarea>
     
@@ -110,20 +108,20 @@
 
       if (!cats.includes(huidigeCategorie)) huidigeCategorie = "Landen";
 
-      // Bouw categorie knoppen
+      // Bouw categorie knoppen op
       document.getElementById("catNav").innerHTML = cats.map(c => `
         <div class="cat-pill ${huidigeCategorie === c ? 'active' : ''}">
           <button class="cat-btn" onclick="selectCategory('${c}')">${c}</button>
-          ${c !== "Landen" ? `<button class="cat-del-btn" onclick="verwijderCategorie('${c}')" title="Verwijder categorie">🗑️</button>` : ''}
+          ${c !== "Landen" ? `<button class="cat-del-btn" onclick="verwijderCategorie(event, '${c}')" title="Verwijder categorie">🗑️</button>` : ''}
         </div>
       `).join("");
 
       document.getElementById("catList").innerHTML = cats.map(c => `<option value="${c}">`).join("");
 
-      // Filter op categorie en zoekterm
+      // Filteren
       let gefilterde = recipes.filter(r => (r.categorie || "Landen") === huidigeCategorie);
       if (searchTerm) {
-        gefilterde = gefilterde.filter(r => (r.titel && r.titel.toLowerCase().includes(searchTerm)) || (r.ingredienten && r.ingredienten.some(ing => ing.toLowerCase().includes(searchTerm))));
+        gefilterde = gefilterde.filter(r => (r.titel && r.titel.toLowerCase().includes(searchTerm)) || (r.ingredienten && JSON.stringify(r.ingredienten).toLowerCase().includes(searchTerm)));
       }
 
       renderAlphabetNav(gefilterde);
@@ -140,37 +138,53 @@
       if (index >= gefilterde.length) index = 0;
 
       carousel.innerHTML = gefilterde.map((r, i) => {
-        let ingList = Array.isArray(r.ingredienten) ? r.ingredienten : (r.ingredienten ? r.ingredienten.split('\n') : []);
-        let ingHtml = ingList.map(x => `<li>${x}</li>`).join("");
+        // FOOTPROOF INGREDIËNTEN PARSER
+        let ingData = r.ingredienten || "";
+        let ingList = [];
+        if (Array.isArray(ingData)) {
+            ingList = ingData;
+        } else if (typeof ingData === 'string') {
+            if(ingData.startsWith('[')) {
+               try { ingList = JSON.parse(ingData); } catch(e) { ingList = ingData.split('\n'); }
+            } else {
+               ingList = ingData.split('\n');
+            }
+        }
+        let ingHtml = ingList.filter(x => x.trim() !== "").map(x => `<li>${x}</li>`).join("");
 
+        // FOOTPROOF BEREIDING PARSER
         let stepsHtml = "";
-        if (r.bereiding && Array.isArray(r.bereiding)) {
-          stepsHtml = r.bereiding.map((s, idx) => {
-            let lines = Array.isArray(s.lines) ? s.lines : [s.lines || ''];
-            let linesHtml = lines.map(line => `<li>${line}</li>`).join("");
-            return `
-              <div class="step-frame">
-                <div class="step-header">
-                  <span class="step-number-kader">${idx + 1}.</span>
-                  <span class="step-title-display">${s.title || 'Stap'}</span>
-                </div>
-                <ul class="step-list">${linesHtml}</ul>
-              </div>
-            `;
-          }).join("");
+        let stappenData = r.bereiding || [];
+        if (typeof stappenData === 'string') {
+            try { stappenData = JSON.parse(stappenData); } catch(e) { stappenData = []; }
+        }
+        
+        if (Array.isArray(stappenData)) {
+            stepsHtml = stappenData.map((s, idx) => {
+                let sTitle = s.title || "Stap";
+                let lines = Array.isArray(s.lines) ? s.lines : [s.lines || ""];
+                let linesHtml = lines.filter(l => l.trim() !== "").map(line => `<li>${line}</li>`).join("");
+                
+                return `
+                <div class="step-frame">
+                    <div class="step-header">
+                        <span class="step-number-kader">${idx + 1}.</span>
+                        <span class="step-title-display">${sTitle}</span>
+                    </div>
+                    <ul class="step-list">${linesHtml}</ul>
+                </div>`;
+            }).join("");
         }
 
         return `
-          <div class="recipe ${i === index ? 'active' : ''}">
-            <h2>${r.titel || 'Naamloos'}</h2>
-            <p><strong>Tijd:</strong> ${r.tijd || '-'} &middot; <strong>Moeilijkheid:</strong> ${r.moeilijkheid || '-'}</p>
+        <div class="recipe ${i === index ? 'active' : ''}">
+            <h2>${r.titel || 'Naamloos Recept'}</h2>
             <h3>Ingrediënten</h3>
-            <ul class="step-list">${ingHtml}</ul>
+            <ul class="step-list">${ingHtml || '<li>Geen ingrediënten toegevoegd.</li>'}</ul>
             <h3>Bereiding</h3>
-            <div>${stepsHtml}</div>
+            <div>${stepsHtml || '<p>Geen stappen toegevoegd.</p>'}</div>
             <button class="remove-step-btn" onclick="deleteRecipe(${r.id})" style="margin-top: 15px;">Verwijderen</button>
-          </div>
-        `;
+        </div>`;
       }).join("");
 
       counter.textContent = `Recept ${index + 1} van ${gefilterde.length}`;
@@ -201,12 +215,17 @@
 
     function selectCategory(cat) { huidigeCategorie = cat; index = 0; renderApp(); }
 
-    async function verwijderCategorie(cat) {
-      if (!confirm(`Categorie '${cat}' verwijderen? Recepten gaan naar 'Landen'.`)) return;
-      const teUpdaten = recipes.filter(r => r.categorie === cat);
-      for (let r of teUpdaten) {
-        await db.from('recepten').update({ categorie: 'Landen' }).eq('id', r.id);
+    async function verwijderCategorie(event, cat) {
+      event.stopPropagation(); // Voorkomt conflict met de categorie-knop zelf
+      if (!confirm(`Weet je zeker dat je categorie '${cat}' wilt verwijderen? De recepten worden teruggezet naar 'Landen'.`)) return;
+      
+      // Update alles met deze categorie direct op de database
+      const { error } = await db.from('recepten').update({ categorie: 'Landen' }).eq('categorie', cat);
+      if (error) {
+          alert("Fout bij verwijderen: " + error.message);
+          return;
       }
+      
       huidigeCategorie = "Landen";
       fetchRecipes();
     }
@@ -234,25 +253,33 @@
     async function saveRecipe() {
       const titel = document.getElementById("newTitle").value.trim();
       const categorie = document.getElementById("newCat").value.trim() || "Landen";
-      const tijd = document.getElementById("newTime").value.trim();
-      const moeilijkheid = document.getElementById("newDifficulty").value.trim();
-      const ingredienten = document.getElementById("newIngredients").value.split("\n").map(x => x.trim()).filter(x => x);
+      const ingredienten = document.getElementById("newIngredients").value.trim();
       
       const bereiding = [];
       document.querySelectorAll(".step-input-group").forEach(group => {
-        bereiding.push({
-          title: group.querySelector(".step-title").value.trim() || "Stap",
-          lines: [group.querySelector(".step-lines").value.trim()].filter(x => x)
-        });
+        const title = group.querySelector(".step-title").value.trim();
+        const desc = group.querySelector(".step-lines").value.trim();
+        if (title || desc) {
+          bereiding.push({ title: title || "Stap", lines: [desc] });
+        }
       });
 
-      if (!titel || ingredienten.length === 0) { alert("Vul ten minste een titel en ingrediënten in."); return; }
+      if (!titel) { alert("Vul op zijn minst een titel in."); return; }
 
-      const { error } = await db.from('recepten').insert([{ titel, categorie, tijd, moeilijkheid, ingredienten, bereiding }]);
+      const payload = { titel, categorie, ingredienten, bereiding };
+
+      const { error } = await db.from('recepten').insert([payload]);
       if (error) { alert("Fout: " + error.message); return; }
 
-      alert("Recept opgeslagen!");
+      alert("Recept succesvol opgeslagen!");
+      
+      // Formulier resetten
+      document.getElementById("newTitle").value = "";
+      document.getElementById("newCat").value = "";
+      document.getElementById("newIngredients").value = "";
+      document.getElementById("stepsInputContainer").innerHTML = "";
       document.getElementById("addForm").classList.remove("show");
+      
       fetchRecipes();
     }
 
