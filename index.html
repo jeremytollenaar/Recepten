@@ -123,6 +123,7 @@
   </div>
 
   <script>
+    // --- 1. ALLE VARIABELEN STAAN HIER DIRECT BOVENAAN ---
     let recipes = [];
     let trashRecipes = JSON.parse(localStorage.getItem('myTrashRecipes') || '[]');
     let shoppingList = JSON.parse(localStorage.getItem('myShoplist') || '[]');
@@ -131,13 +132,12 @@
     let inTrashView = false;
     let inShoplistView = false;
 
-    // Timer Variabelen
     let activeTimer = null;
     let timeLeft = 0;
     let isPaused = false;
     let currentRecipeName = "";
 
-    // Supabase Configuratie
+    // --- 2. SUPABASE INITIALISATIE ---
     const supabaseUrl = 'https://tnwdxmzvrmfwpwhcmkto.supabase.co';
     const supabaseKey = 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX';
     const db = supabase.createClient(supabaseUrl, supabaseKey);
