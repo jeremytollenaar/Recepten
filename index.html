@@ -155,9 +155,12 @@
 
       document.getElementById("catList").innerHTML = cats.map(c => `<option value="${c}">`).join("");
 
-      let gefilterde = recipes.filter(r => (r.categorie || "Overig") === huidigeCategorie);
+      // Bepaal de lijst op basis van zoekterm (over ALLE recepten) of actieve categorie
+      let gefilterde = [];
       if (searchTerm) {
-        gefilterde = gefilterde.filter(r => (r.titel && r.titel.toLowerCase().includes(searchTerm)));
+        gefilterde = recipes.filter(r => (r.titel && r.titel.toLowerCase().includes(searchTerm)));
+      } else {
+        gefilterde = recipes.filter(r => (r.categorie || "Overig") === huidigeCategorie);
       }
 
       renderAlphabetNav(gefilterde);
@@ -166,7 +169,7 @@
       const counter = document.getElementById("counter");
 
       if (gefilterde.length === 0) {
-        carousel.innerHTML = `<div class="recipe active"><p>Geen recepten gevonden in deze categorie.</p></div>`;
+        carousel.innerHTML = `<div class="recipe active"><p>Geen recepten gevonden.</p></div>`;
         counter.textContent = "";
         return;
       }
@@ -179,6 +182,7 @@
         let stepsHtml = parseSteps(r.bereiding);
 
         let metaInfo = [];
+        if (r.categorie) metaInfo.push(`<strong>Categorie:</strong> ${r.categorie}`);
         if (r.tijd) metaInfo.push(`<strong>Tijd:</strong> ${r.tijd}`);
         if (r.moeilijkheid) metaInfo.push(`<strong>Moeilijkheid:</strong> ${r.moeilijkheid}`);
         let metaHtml = metaInfo.length > 0 ? `<p>${metaInfo.join(' &middot; ')}</p>` : '';
@@ -355,7 +359,12 @@
       });
     }
 
-    function selectCategory(cat) { huidigeCategorie = cat; index = 0; renderApp(); }
+    function selectCategory(cat) { 
+      document.getElementById("search").value = ""; // Wis zoekopdracht bij categorieklik
+      huidigeCategorie = cat; 
+      index = 0; 
+      renderApp(); 
+    }
 
     async function verwijderCategorie(event, cat) {
       event.stopPropagation();
@@ -439,14 +448,16 @@
     }
 
     document.getElementById("next").onclick = () => {
-      const gefilterde = recipes.filter(r => (r.categorie || "Overig") === huidigeCategorie);
+      const searchTerm = document.getElementById("search").value.toLowerCase();
+      let gefilterde = searchTerm ? recipes.filter(r => r.titel && r.titel.toLowerCase().includes(searchTerm)) : recipes.filter(r => (r.categorie || "Overig") === huidigeCategorie);
       if (gefilterde.length === 0) return;
       index = (index + 1) % gefilterde.length;
       renderApp();
     };
 
     document.getElementById("prev").onclick = () => {
-      const gefilterde = recipes.filter(r => (r.categorie || "Overig") === huidigeCategorie);
+      const searchTerm = document.getElementById("search").value.toLowerCase();
+      let gefilterde = searchTerm ? recipes.filter(r => r.titel && r.titel.toLowerCase().includes(searchTerm)) : recipes.filter(r => (r.categorie || "Overig") === huidigeCategorie);
       if (gefilterde.length === 0) return;
       index = (index - 1 + gefilterde.length) % gefilterde.length;
       renderApp();
