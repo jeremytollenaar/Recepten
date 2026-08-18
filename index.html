@@ -8,105 +8,303 @@
   <meta name="theme-color" content="#211d1d">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2?v=3"></script>
   <style>
-    body { font-family: system-ui, sans-serif; background: #1a1a1a; color: #e0e0e0; margin: 0; padding: 16px; text-align: center; }
-    h1 { color: #fff; margin-bottom: 5px; }
-    
-    /* Categorie Navigatie */
-    .cat-nav { display: flex; justify-content: center; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
-    .cat-btn { background: #363636; color: #fff; border: 1px solid #444; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
-    .cat-btn.active { background: #ab7c7c; border-color: #ab7c7c; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      margin: 0;
+      padding: 16px;
+      text-align: center;
+    }
 
-    .carousel { max-width: 600px; margin: 0 auto; }
-    .recipe { display: none; background: #2d2d2d; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.4); text-align: left; opacity: 0; transition: opacity 0.3s ease; }
-    .recipe.active { display: block; opacity: 1; }
-    .recipe h2 { color: #fff; margin-top: 0; }
-    .recipe h3 { color: #ab7c7c; border-bottom: 1px solid #444; padding-bottom: 4px; }
-    
-    .nav-btn, .copy-btn, .edit-btn, .delete-btn, .shop-btn, #toggleAdd, #toggleTrash { background: #ab7c7c; color: #fff; border: none; padding: 12px 18px; border-radius: 10px; cursor: pointer; font-weight: bold; margin: 5px; }
-    .delete-btn { background: #d9534f; }
-    
-    #addForm { display: none; background: #2d2d2d; padding: 20px; border-radius: 16px; margin: 1rem auto; max-width: 600px; text-align: left; }
-    #addForm.show { display: block; }
-    #addForm input, #addForm textarea { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #444; background: #363636; color: #fff; box-sizing: border-box; }
-    
-    #shoppingListPopup, #trashPopup { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #2d2d2d; padding: 20px; border-radius: 16px; display: none; width: 90%; max-width: 400px; z-index: 1000; border: 1px solid #444; }
-    #shoppingListPopup.show, #trashPopup.show { display: block; }
+    h1 {
+      color: #fff;
+      margin-bottom: 5px;
+    }
+
+    p {
+      color: #aaa;
+    }
+
+    /* Categorie Navigatie */
+    .cat-nav {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .cat-btn {
+      background: #2d2d2d;
+      color: #ab7c7c;
+      border: 1px solid #ab7c7c;
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
+
+    .cat-btn.active, .cat-btn:hover {
+      background: #ab7c7c;
+      color: #fff;
+    }
+
+    .carousel {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* Moderne App-Card stijl */
+    .recipe {
+      display: none;
+      background: #2d2d2d;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+      text-align: left;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .recipe.active {
+      display: block;
+      opacity: 1;
+    }
+
+    .recipe h2 {
+      color: #fff;
+      margin-top: 0;
+    }
+
+    .recipe h3 {
+      color: #ab7c7c;
+      border-bottom: 1px solid #444;
+      padding-bottom: 4px;
+    }
+
+    .nav-btn, .copy-btn, .edit-btn, .delete-btn, .shop-btn, #toggleAdd, #toggleTrash {
+      background: #ab7c7c;
+      color: #fff;
+      border: none;
+      padding: 12px 18px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: bold;
+      margin-top: 8px;
+      margin-right: 6px;
+    }
+
+    .delete-btn {
+      background: #d9534f;
+    }
+
+    #search {
+      width: 100%;
+      max-width: 400px;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #444;
+      background: #2d2d2d;
+      color: #fff;
+      margin-bottom: 1rem;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+
+    .top-actions {
+      margin-bottom: 1.5rem;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    #addForm {
+      max-width: 600px;
+      margin: 2rem auto;
+      background: #2d2d2d;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+      text-align: left;
+      display: none;
+    }
+
+    #addForm.show {
+      display: block;
+    }
+
+    #addForm input, #addForm textarea {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 1rem;
+      border-radius: 8px;
+      border: 1px solid #444;
+      background: #363636;
+      color: #fff;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+
+    .counter {
+      margin-top: 0.8rem;
+      font-size: 0.95rem;
+      color: #aaa;
+    }
   </style>
 </head>
 <body>
 
   <h1>Receptenboek</h1>
+  <p>Kies een categorie of blader door je recepten.</p>
+
+  <!-- Categorie Navigatie -->
   <div class="cat-nav" id="catNav"></div>
-  <input type="text" id="search" placeholder="Zoek recept..." style="width: 100%; max-width: 400px; padding: 10px; border-radius: 8px; background: #2d2d2d; color: #fff; border: 1px solid #444; margin-bottom: 1rem;">
-  
+
+  <input type="text" id="search" placeholder="Zoek een recept...">
+
   <div class="top-actions">
-    <button id="toggleAdd" onclick="toggleForm()">+ Recept</button>
-    <button id="toggleTrash" onclick="openTrash()">🗑️ Prullenbak</button>
+    <button id="toggleAdd" onclick="toggleForm()">+ Recept toevoegen</button>
   </div>
 
   <div id="addForm">
-    <input type="text" id="newTitle" placeholder="Titel">
-    <input type="text" id="newCat" placeholder="Categorie (bijv. Pasta)">
-    <textarea id="newIngredients" placeholder="Ingrediënten (per regel)" rows="4"></textarea>
-    <button onclick="saveRecipe()">Opslaan</button>
+    <h2>Nieuw recept</h2>
+    <input type="text" id="newTitle" placeholder="Titel van recept">
+    <input type="text" id="newCat" placeholder="Categorie (bijv. Landen, Pasta, Ontbijt)">
+    <input type="text" id="newTime" placeholder="Bereidingstijd (bijv. 20 min)">
+    <input type="text" id="newDifficulty" placeholder="Moeilijkheid">
+    <textarea id="newIngredients" placeholder="Ingrediënten (één per regel)" rows="4"></textarea>
+    <button onclick="saveRecipe()" style="background: #ab7c7c; color: #fff; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer;">Opslaan</button>
   </div>
 
-  <div class="carousel" id="carousel"></div>
-
-  <div style="margin-top: 20px;">
-    <button id="prev" class="nav-btn">◀</button>
-    <button id="next" class="nav-btn">▶</button>
+  <div class="carousel" id="carousel">
+    <div style="padding: 20px; color: #888;">Recepten laden...</div>
   </div>
 
-  <div id="shoppingListPopup"><ul id="shoppingList"></ul><button onclick="document.getElementById('shoppingListPopup').classList.remove('show')">Sluiten</button></div>
-  <div id="trashPopup"><div id="trashList"></div><button onclick="document.getElementById('trashPopup').classList.remove('show')">Sluiten</button></div>
+  <div>
+    <button id="prev" class="nav-btn">◀ Vorige</button>
+    <button id="next" class="nav-btn">Volgende ▶</button>
+    <div class="counter" id="counter"></div>
+  </div>
 
   <script>
-    const db = supabase.createClient('https://tnwdxmzvrmfwpwhcmkto.supabase.co', 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX');
-    let recipes = [], index = 0, huidigeCategorie = "Landen";
+    const db = supabase.createClient('httpstnwdxmzvrmfwpwhcmkto.supabase.co'.replace('tnwd','//tnwd'), 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX');
+    let recipes = [];
+    let index = 0;
+    let huidigeCategorie = "Landen";
 
     async function fetchRecipes() {
-      const { data } = await db.from('recepten').select('*');
+      const { data, error } = await db.from('recepten').select('*');
+      if (error) {
+        console.error(error);
+        return;
+      }
       recipes = data || [];
       renderApp();
     }
 
     function renderApp() {
+      // Bepaal unieke categorieën uit de database (+ standaard categorieën)
+      const cats = ["Landen", "Pasta", "Ontbijt", "Dessert"];
+      recipes.forEach(r => { if(r.categorie && !cats.includes(r.categorie)) cats.push(r.categorie); });
+
       const nav = document.getElementById("catNav");
-      nav.innerHTML = "";
-      const cats = [...new Set(recipes.map(r => r.categorie || "Landen"))];
-      cats.forEach(c => {
-        const btn = document.createElement("button");
-        btn.className = `cat-btn ${huidigeCategorie === c ? 'active' : ''}`;
-        btn.innerText = c;
-        btn.onclick = () => { huidigeCategorie = c; index = 0; renderApp(); };
-        nav.appendChild(btn);
-      });
+      nav.innerHTML = cats.map(c => `
+        <button class="cat-btn ${huidigeCategorie === c ? 'active' : ''}" onclick="selectCategory('${c}')">${c}</button>
+      `).join("");
 
       const gefilterde = recipes.filter(r => (r.categorie || "Landen") === huidigeCategorie);
       const carousel = document.getElementById("carousel");
-      carousel.innerHTML = gefilterde.length ? "" : "<p>Geen recepten gevonden.</p>";
-      
+      const counter = document.getElementById("counter");
+
+      if (gefilterde.length === 0) {
+        carousel.innerHTML = `<div class="recipe active"><p style="text-align:center;">Geen recepten gevonden in categorie '${huidigeCategorie}'.</p></div>`;
+        counter.textContent = "Recept 0 van 0";
+        return;
+      }
+
+      if (index >= gefilterde.length) index = 0;
+
+      carousel.innerHTML = "";
       gefilterde.forEach((r, i) => {
-        const div = document.createElement("div");
-        div.className = `recipe ${i === index ? 'active' : ''}`;
-        div.innerHTML = `<h2>${r.titel}</h2><p>Categorie: ${r.categorie || 'Landen'}</p><button class="delete-btn" onclick="deleteRecipe(${r.id})">Verwijderen</button>`;
-        carousel.appendChild(div);
+        const article = document.createElement("article");
+        article.className = "recipe" + (i === index ? " active" : "");
+        
+        let ingList = Array.isArray(r.ingredienten) ? r.ingredienten : (r.ingredienten ? r.ingredienten.split('\n') : []);
+        let ingHtml = ingList.map(x => `<li>${x}</li>`).join("");
+
+        article.innerHTML = `
+          <h2>${r.titel || 'Naamloos'}</h2>
+          <p><strong>Tijd:</strong> ${r.tijd || '-'} &middot; <strong>Moeilijkheid:</strong> ${r.moeilijkheid || '-'}</p>
+          <h3>Ingrediënten</h3>
+          <ul>${ingHtml}</ul>
+          <button class="delete-btn" onclick="deleteRecipe(${r.id})">Verwijderen</button>
+        `;
+        carousel.appendChild(article);
       });
+
+      counter.textContent = `Recept ${index + 1} van ${gefilterde.length}`;
     }
 
-    function toggleForm() { document.getElementById("addForm").classList.toggle("show"); }
-    
+    function selectCategory(cat) {
+      huidigeCategorie = cat;
+      index = 0;
+      renderApp();
+    }
+
+    function toggleForm() {
+      document.getElementById("addForm").classList.toggle("show");
+    }
+
     async function saveRecipe() {
-      const titel = document.getElementById("newTitle").value;
-      const categorie = document.getElementById("newCat").value || "Landen";
-      await db.from('recepten').insert([{ titel, categorie }]);
+      const titel = document.getElementById("newTitle").value.trim();
+      const categorie = document.getElementById("newCat").value.trim() || "Landen";
+      const tijd = document.getElementById("newTime").value.trim();
+      const moeilijkheid = document.getElementById("newDifficulty").value.trim();
+      const ingredienten = document.getElementById("newIngredients").value.split("\n").map(x => x.trim()).filter(x => x);
+
+      if (!titel) {
+        alert("Vul ten minste een titel in.");
+        return;
+      }
+
+      const { error } = await db.from('recepten').insert([{ titel, categorie, tijd, moeilijkheid, ingredienten }]);
+      if (error) {
+        alert("Fout bij opslaan: " + error.message);
+        return;
+      }
+
+      alert("Recept opgeslagen!");
+      document.getElementById("addForm").classList.remove("show");
       fetchRecipes();
-      toggleForm();
     }
 
-    document.getElementById("next").onclick = () => { index = (index + 1) % recipes.length; renderApp(); };
-    document.getElementById("prev").onclick = () => { index = (index - 1 + recipes.length) % recipes.length; renderApp(); };
+    async function deleteRecipe(id) {
+      if (!confirm("Weet je zeker dat je dit recept wilt verwijderen?")) return;
+      const { error } = await db.from('recepten').delete().eq('id', id);
+      if (error) {
+        alert("Fout bij verwijderen: " + error.message);
+      } else {
+        fetchRecipes();
+      }
+    }
+
+    document.getElementById("next").onclick = () => {
+      const gefilterde = recipes.filter(r => (r.categorie || "Landen") === huidigeCategorie);
+      if (gefilterde.length === 0) return;
+      index = (index + 1) % gefilterde.length;
+      renderApp();
+    };
+
+    document.getElementById("prev").onclick = () => {
+      const gefilterde = recipes.filter(r => (r.categorie || "Landen") === huidigeCategorie);
+      if (gefilterde.length === 0) return;
+      index = (index - 1 + gefilterde.length) % gefilterde.length;
+      renderApp();
+    };
 
     fetchRecipes();
   </script>
