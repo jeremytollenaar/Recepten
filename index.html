@@ -39,8 +39,9 @@
     .step-list { margin: 0; padding-left: 1.2rem; color: #ccc; line-height: 1.5; }
 
     /* Knoppen & Formulier */
-    .nav-btn, .save-recipe-btn, .add-step-btn, .remove-step-btn, #toggleAdd { background: #ab7c7c; color: #fff; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; margin: 5px; }
+    .nav-btn, .save-recipe-btn, .add-step-btn, .remove-step-btn, .restore-btn, #toggleAdd, #toggleTrash { background: #ab7c7c; color: #fff; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; margin: 5px; }
     .remove-step-btn { background: #d9534f; }
+    .restore-btn { background: #5cb85c; }
     
     #addForm { max-width: 600px; margin: 2rem auto; background: #2d2d2d; padding: 20px; border-radius: 16px; text-align: left; display: none; }
     #addForm.show { display: block; }
@@ -51,7 +52,7 @@
 <body>
 
   <h1>Receptenboek</h1>
-  <p>Kies een categorie of blader door je recepten.</p>
+  <p id="subTitle">Kies een categorie of blader door je recepten.</p>
 
   <!-- Categorie Navigatie -->
   <div class="cat-nav" id="catNav"></div>
@@ -63,6 +64,7 @@
 
   <div style="margin-bottom: 1.5rem;">
     <button id="toggleAdd" onclick="toggleForm()">+ Recept toevoegen</button>
+    <button id="toggleTrash" onclick="toggleTrashView()">🗑️ Prullenbak (0)</button>
   </div>
 
   <div id="addForm">
@@ -84,7 +86,7 @@
 
   <div class="carousel" id="carousel"></div>
 
-  <div style="margin-top: 20px;">
+  <div style="margin-top: 20px;" id="paginationContainer">
     <button id="prev" class="nav-btn">◀ Vorige</button>
     <button id="next" class="nav-btn">Volgende ▶</button>
     <div id="counter" style="margin-top: 10px; color: #aaa;"></div>
@@ -93,23 +95,50 @@
   <script>
     const db = supabase.createClient('https://tnwdxmzvrmfwpwhcmkto.supabase.co', 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX');
     let recipes = [];
+    let trashRecipes = [];
     let index = 0;
     let huidigeCategorie = "Overig";
+    let inTrashView = false;
 
     async function fetchRecipes() {
-      const { data, error } = await db.from('recepten').select('*');
+      // Haal actieve recepten op (waar deleted_at leeg/null is)
+      const { data, error } = await db.from('recepten').select('*').is('deleted_at', null);
       if (error) { console.error(error); return; }
       recipes = data || [];
+
+      // Haal prullenbak recepten op
+      const { data: trashData, error: trashError } = await db.from('recepten').select('*').not('deleted_at', 'is', null);
+      if (!trashError) {
+        trashRecipes = trashData || [];
+      }
+
+      document.getElementById("toggleTrash").textContent = `🗑️ Prullenbak (${trashRecipes.length})`;
       renderApp();
     }
 
     function renderApp() {
       const searchTerm = document.getElementById("search").value.toLowerCase();
-      
+      const catNavElement = document.getElementById("catNav");
+      const alphabetNavElement = document.getElementById("alphabetNav");
+      const paginationElement = document.getElementById("paginationContainer");
+
+      if (inTrashView) {
+        catNavElement.style.display = "none";
+        alphabetNavElement.style.display = "none";
+        document.getElementById("subTitle").textContent = "Verwijderde recepten in de prullenbak:";
+        paginationElement.style.display = "none";
+        renderTrashList(searchTerm);
+        return;
+      } else {
+        catNavElement.style.display = "flex";
+        alphabetNavElement.style.display = "flex";
+        document.getElementById("subTitle").textContent = "Kies een categorie of blader door je recepten.";
+        paginationElement.style.display = "block";
+      }
+
       let cats = [...new Set(recipes.map(r => r.categorie).filter(c => c && c.trim() !== ""))];
       if (cats.length === 0) cats = ["Overig"];
       
-      // Zorg dat 'Overig' altijd achteraan staat als vaste basiscategorie
       if (cats.includes("Overig")) {
         cats = cats.filter(c => c !== "Overig");
         cats.push("Overig");
@@ -117,7 +146,7 @@
 
       if (!cats.includes(huidigeCategorie)) huidigeCategorie = cats[0];
 
-      // Bouw categorie knoppen op (Geen prullenbakje voor 'Overig')
+      // Bouw categorie knoppen op, EXPLICIT GEEN PRULLENBAK VOOR "OVERIG"
       document.getElementById("catNav").innerHTML = cats.map(c => `
         <div class="cat-pill ${huidigeCategorie === c ? 'active' : ''}">
           <button class="cat-btn" onclick="selectCategory('${c}')">${c}</button>
@@ -146,37 +175,9 @@
       if (index >= gefilterde.length) index = 0;
 
       carousel.innerHTML = gefilterde.map((r, i) => {
-        
-        let ingList = [];
-        if (typeof r.ingredienten === 'string') {
-            try { ingList = JSON.parse(r.ingredienten); } 
-            catch(e) { ingList = r.ingredienten.split('\n'); } 
-        } else if (Array.isArray(r.ingredienten)) {
-            ingList = r.ingredienten;
-        }
-        let ingHtml = ingList.filter(x => x.trim() !== "").map(x => `<li>${x.replace(/["\[\]]/g, '')}</li>`).join("");
-
-        let bList = [];
-        if (typeof r.bereiding === 'string') {
-            try { bList = JSON.parse(r.bereiding); } catch(e) { console.warn("Kon bereiding niet lezen", r.bereiding); }
-        } else if (Array.isArray(r.bereiding)) {
-            bList = r.bereiding;
-        }
-
-        let stepsHtml = bList.map((s, idx) => {
-            let lines = Array.isArray(s.lines) ? s.lines : [s.lines];
-            let linesHtml = lines.filter(l => l && l.trim() !== "").map(line => `<li>${line}</li>`).join("");
-            if(!linesHtml) return ""; 
-
-            return `
-            <div class="step-frame">
-                <div class="step-header">
-                    <span class="step-number-kader">${idx + 1}.</span>
-                    <span class="step-title-display">${s.title || 'Stap'}</span>
-                </div>
-                <ul class="step-list">${linesHtml}</ul>
-            </div>`;
-        }).join("");
+        let ingList = parseIng(r.ingredienten);
+        let ingHtml = ingList.map(x => `<li>${x.replace(/["\[\]]/g, '')}</li>`).join("");
+        let stepsHtml = parseSteps(r.bereiding);
 
         let metaInfo = [];
         if (r.tijd) metaInfo.push(`<strong>Tijd:</strong> ${r.tijd}`);
@@ -187,18 +188,106 @@
         <div class="recipe ${i === index ? 'active' : ''}">
             <h2>${r.titel || 'Naamloos Recept'}</h2>
             ${metaHtml}
-            
             <h3>Ingrediënten</h3>
-            <ul class="step-list">${ingHtml || '<li>Geen ingrediënten toegevoegd.</li>'}</ul>
-            
+            <ul class="step-list">${ingHtml || '<li>Geen ingrediënten.</li>'}</ul>
             <h3>Bereiding</h3>
-            <div style="margin-top:10px;">${stepsHtml || '<p style="color:#aaa;">Geen bereidingsstappen toegevoegd.</p>'}</div>
-            
-            <button class="remove-step-btn" onclick="deleteRecipe(${r.id})" style="margin-top: 20px;">Verwijderen</button>
+            <div style="margin-top:10px;">${stepsHtml || '<p style="color:#aaa;">Geen stappen.</p>'}</div>
+            <button class="remove-step-btn" onclick="moveToTrash(${r.id})" style="margin-top: 20px;">Verwijderen</button>
         </div>`;
       }).join("");
 
       counter.textContent = `Recept ${index + 1} van ${gefilterde.length}`;
+    }
+
+    function renderTrashList(searchTerm) {
+      const carousel = document.getElementById("carousel");
+      let gefilterde = trashRecipes;
+      if (searchTerm) {
+        gefilterde = gefilterde.filter(r => r.titel && r.titel.toLowerCase().includes(searchTerm));
+      }
+
+      if (gefilterde.length === 0) {
+        carousel.innerHTML = `<div class="recipe active"><p>De prullenbak is leeg.</p></div>`;
+        return;
+      }
+
+      carousel.innerHTML = gefilterde.map((r, i) => {
+        let ingList = parseIng(r.ingredienten);
+        let ingHtml = ingList.map(x => `<li>${x.replace(/["\[\]]/g, '')}</li>`).join("");
+        let stepsHtml = parseSteps(r.bereiding);
+
+        return `
+        <div class="recipe active" style="margin-bottom: 20px;">
+            <h2>🗑️ ${r.titel || 'Naamloos'} <span style="font-size:0.8rem; color:#ab7c7c;">(Categorie: ${r.categorie || 'Overig'})</span></h2>
+            <h3>Ingrediënten</h3>
+            <ul class="step-list">${ingHtml}</ul>
+            <h3>Bereiding</h3>
+            <div>${stepsHtml}</div>
+            <div style="margin-top: 20px; display: flex; gap: 10px;">
+              <button class="restore-btn" onclick="restoreRecipe(${r.id})">Terughalen</button>
+              <button class="remove-step-btn" onclick="deletePermanent(${r.id})">Definitief wissen</button>
+            </div>
+        </div>`;
+      }).join("");
+    }
+
+    function parseIng(ingData) {
+      if (typeof ingData === 'string') {
+          try { return JSON.parse(ingData); } catch(e) { return ingData.split('\n'); }
+      } else if (Array.isArray(ingData)) {
+          return ingData;
+      }
+      return [];
+    }
+
+    function parseSteps(bData) {
+      let bList = [];
+      if (typeof bData === 'string') {
+          try { bList = JSON.parse(bData); } catch(e) {}
+      } else if (Array.isArray(bData)) {
+          bList = bData;
+      }
+      return bList.map((s, idx) => {
+          let lines = Array.isArray(s.lines) ? s.lines : [s.lines];
+          let linesHtml = lines.filter(l => l && l.trim() !== "").map(line => `<li>${line}</li>`).join("");
+          if(!linesHtml) return "";
+          return `
+          <div class="step-frame">
+              <div class="step-header">
+                  <span class="step-number-kader">${idx + 1}.</span>
+                  <span class="step-title-display">${s.title || 'Stap'}</span>
+              </div>
+              <ul class="step-list">${linesHtml}</ul>
+          </div>`;
+      }).join("");
+    }
+
+    function toggleTrashView() {
+      inTrashView = !inTrashView;
+      const btn = document.getElementById("toggleTrash");
+      btn.textContent = inTrashView ? "← Terug naar recepten" : `🗑️ Prullenbak (${trashRecipes.length})`;
+      index = 0;
+      renderApp();
+    }
+
+    async function moveToTrash(id) {
+      if (!confirm("Weet je zeker dat je dit recept naar de prullenbak wilt verplaatsen?")) return;
+      const { error } = await db.from('recepten').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+      if (error) alert("Fout: " + error.message);
+      else fetchRecipes();
+    }
+
+    async function restoreRecipe(id) {
+      const { error } = await db.from('recepten').update({ deleted_at: null }).eq('id', id);
+      if (error) alert("Fout: " + error.message);
+      else fetchRecipes();
+    }
+
+    async function deletePermanent(id) {
+      if (!confirm("Wil je dit recept definitief wissen? Dit kan niet ongedaan worden gemaakt.")) return;
+      const { error } = await db.from('recepten').delete().eq('id', id);
+      if (error) alert("Fout: " + error.message);
+      else fetchRecipes();
     }
 
     function renderAlphabetNav(gefilterde) {
@@ -288,7 +377,8 @@
         tijd, 
         moeilijkheid, 
         ingredienten: JSON.stringify(ingredientenArray), 
-        bereiding: JSON.stringify(bereidingArray) 
+        bereiding: JSON.stringify(bereidingArray),
+        deleted_at: null 
       };
 
       const { error } = await db.from('recepten').insert([payload]);
@@ -305,13 +395,6 @@
       document.getElementById("addForm").classList.remove("show");
       
       fetchRecipes();
-    }
-
-    async function deleteRecipe(id) {
-      if (!confirm("Weet je zeker dat je dit recept wilt verwijderen?")) return;
-      const { error } = await db.from('recepten').delete().eq('id', id);
-      if (error) alert("Fout: " + error.message);
-      else fetchRecipes();
     }
 
     document.getElementById("next").onclick = () => {
