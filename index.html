@@ -3,102 +3,110 @@
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta charset="UTF-8">
-  <title>Mijn Receptenboek</title>
+  <title>Receptenboek</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#211d1d">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2?v=3"></script>
   <style>
-    /* ... (Houd je bestaande CSS van de vorige stap hier, en voeg dit onderaan toe) ... */
-    .cat-nav {
-      display: flex;
-      justify-content: center;
-      gap: 8px;
-      margin-bottom: 1rem;
-      flex-wrap: wrap;
-    }
-    .cat-btn {
-      background: #363636;
-      color: #fff;
-      border: 1px solid #444;
-      padding: 8px 12px;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-    .cat-btn.active {
-      background: #ab7c7c;
-      border-color: #ab7c7c;
-    }
+    body { font-family: system-ui, sans-serif; background: #1a1a1a; color: #e0e0e0; margin: 0; padding: 16px; text-align: center; }
+    h1 { color: #fff; margin-bottom: 5px; }
+    
+    /* Categorie Navigatie */
+    .cat-nav { display: flex; justify-content: center; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
+    .cat-btn { background: #363636; color: #fff; border: 1px solid #444; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+    .cat-btn.active { background: #ab7c7c; border-color: #ab7c7c; }
+
+    .carousel { max-width: 600px; margin: 0 auto; }
+    .recipe { display: none; background: #2d2d2d; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.4); text-align: left; opacity: 0; transition: opacity 0.3s ease; }
+    .recipe.active { display: block; opacity: 1; }
+    .recipe h2 { color: #fff; margin-top: 0; }
+    .recipe h3 { color: #ab7c7c; border-bottom: 1px solid #444; padding-bottom: 4px; }
+    
+    .nav-btn, .copy-btn, .edit-btn, .delete-btn, .shop-btn, #toggleAdd, #toggleTrash { background: #ab7c7c; color: #fff; border: none; padding: 12px 18px; border-radius: 10px; cursor: pointer; font-weight: bold; margin: 5px; }
+    .delete-btn { background: #d9534f; }
+    
+    #addForm { display: none; background: #2d2d2d; padding: 20px; border-radius: 16px; margin: 1rem auto; max-width: 600px; text-align: left; }
+    #addForm.show { display: block; }
+    #addForm input, #addForm textarea { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #444; background: #363636; color: #fff; box-sizing: border-box; }
+    
+    #shoppingListPopup, #trashPopup { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #2d2d2d; padding: 20px; border-radius: 16px; display: none; width: 90%; max-width: 400px; z-index: 1000; border: 1px solid #444; }
+    #shoppingListPopup.show, #trashPopup.show { display: block; }
   </style>
 </head>
 <body>
 
-  <h1>Mijn Recepten</h1>
-  
-  <!-- Categorie Navigatie -->
+  <h1>Receptenboek</h1>
   <div class="cat-nav" id="catNav"></div>
-
-  <input type="text" id="search" placeholder="Zoek recept...">
+  <input type="text" id="search" placeholder="Zoek recept..." style="width: 100%; max-width: 400px; padding: 10px; border-radius: 8px; background: #2d2d2d; color: #fff; border: 1px solid #444; margin-bottom: 1rem;">
   
   <div class="top-actions">
     <button id="toggleAdd" onclick="toggleForm()">+ Recept</button>
+    <button id="toggleTrash" onclick="openTrash()">🗑️ Prullenbak</button>
   </div>
 
-  <!-- Rest van je HTML blijft identiek aan de vorige versie -->
-  <div class="carousel" id="carousel"></div>
-  
-  <script>
-    const SUPABASE_URL = 'https://tnwdxmzvrmfwpwhcmkto.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX';
-    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  <div id="addForm">
+    <input type="text" id="newTitle" placeholder="Titel">
+    <input type="text" id="newCat" placeholder="Categorie (bijv. Pasta)">
+    <textarea id="newIngredients" placeholder="Ingrediënten (per regel)" rows="4"></textarea>
+    <button onclick="saveRecipe()">Opslaan</button>
+  </div>
 
-    let recipes = [];
-    let index = 0;
-    let huidigeCategorie = "Landen"; // Start categorie
-    const categorieën = ["Landen", "Pasta", "Ontbijt", "Dessert"];
+  <div class="carousel" id="carousel"></div>
+
+  <div style="margin-top: 20px;">
+    <button id="prev" class="nav-btn">◀</button>
+    <button id="next" class="nav-btn">▶</button>
+  </div>
+
+  <div id="shoppingListPopup"><ul id="shoppingList"></ul><button onclick="document.getElementById('shoppingListPopup').classList.remove('show')">Sluiten</button></div>
+  <div id="trashPopup"><div id="trashList"></div><button onclick="document.getElementById('trashPopup').classList.remove('show')">Sluiten</button></div>
+
+  <script>
+    const db = supabase.createClient('https://tnwdxmzvrmfwpwhcmkto.supabase.co', 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX');
+    let recipes = [], index = 0, huidigeCategorie = "Landen";
 
     async function fetchRecipes() {
       const { data } = await db.from('recepten').select('*');
       recipes = data || [];
-      renderCategorieNav();
-      renderRecipes();
+      renderApp();
     }
 
-    function renderCategorieNav() {
+    function renderApp() {
       const nav = document.getElementById("catNav");
       nav.innerHTML = "";
-      categorieën.forEach(cat => {
+      const cats = [...new Set(recipes.map(r => r.categorie || "Landen"))];
+      cats.forEach(c => {
         const btn = document.createElement("button");
-        btn.className = `cat-btn ${huidigeCategorie === cat ? 'active' : ''}`;
-        btn.innerText = cat;
-        btn.onclick = () => {
-          huidigeCategorie = cat;
-          index = 0;
-          renderCategorieNav();
-          renderRecipes();
-        };
+        btn.className = `cat-btn ${huidigeCategorie === c ? 'active' : ''}`;
+        btn.innerText = c;
+        btn.onclick = () => { huidigeCategorie = c; index = 0; renderApp(); };
         nav.appendChild(btn);
       });
-    }
 
-    function renderRecipes() {
-      // Filter alleen op de huidige categorie
       const gefilterde = recipes.filter(r => (r.categorie || "Landen") === huidigeCategorie);
-      
       const carousel = document.getElementById("carousel");
-      carousel.innerHTML = "";
-
-      if (gefilterde.length === 0) {
-        carousel.innerHTML = `<p style="text-align:center; padding:20px;">Geen recepten in ${huidigeCategorie}.</p>`;
-        return;
-      }
-
+      carousel.innerHTML = gefilterde.length ? "" : "<p>Geen recepten gevonden.</p>";
+      
       gefilterde.forEach((r, i) => {
-        const article = document.createElement("article");
-        article.className = "recipe" + (i === index ? " active" : "");
-        // ... (De rest van je render-logica zoals eerder) ...
-        article.innerHTML = `<h2>${r.titel}</h2><p>Categorie: ${r.categorie || 'Landen'}</p>...`; 
-        carousel.appendChild(article);
+        const div = document.createElement("div");
+        div.className = `recipe ${i === index ? 'active' : ''}`;
+        div.innerHTML = `<h2>${r.titel}</h2><p>Categorie: ${r.categorie || 'Landen'}</p><button class="delete-btn" onclick="deleteRecipe(${r.id})">Verwijderen</button>`;
+        carousel.appendChild(div);
       });
-      // ... (rest van de functies) ...
     }
+
+    function toggleForm() { document.getElementById("addForm").classList.toggle("show"); }
+    
+    async function saveRecipe() {
+      const titel = document.getElementById("newTitle").value;
+      const categorie = document.getElementById("newCat").value || "Landen";
+      await db.from('recepten').insert([{ titel, categorie }]);
+      fetchRecipes();
+      toggleForm();
+    }
+
+    document.getElementById("next").onclick = () => { index = (index + 1) % recipes.length; renderApp(); };
+    document.getElementById("prev").onclick = () => { index = (index - 1 + recipes.length) % recipes.length; renderApp(); };
 
     fetchRecipes();
   </script>
