@@ -9,8 +9,9 @@
     <style>
         body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f4f4f9; }
         .card { background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        input, textarea { width: 100%; margin-bottom: 10px; padding: 8px; }
-        button { width: 100%; padding: 10px; background: #d9534f; color: white; border: none; border-radius: 5px; }
+        input, textarea { width: 100%; margin-bottom: 10px; padding: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background: #d9534f; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #c9302c; }
     </style>
 </head>
 <body>
@@ -30,31 +31,57 @@
     <div id="recipe-list"></div>
 
     <script>
-        // VUL HIER JE GEGEVENS IN VANUIT SUPABASE SETTINGS > API
+        // Supabase Configuratie
         const SUPABASE_URL = 'https://tnwdxmzvrmfwpwhcmkto.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX';
         
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // Verbinding initialiseren
+        const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         async function saveRecipe() {
-            const { data, error } = await supabase.from('recepten').insert([
-                { 
-                    titel: document.getElementById('titel').value,
-                    personen: document.getElementById('personen').value,
-                    ingredienten: document.getElementById('ingredienten').value,
-                    bereiding: document.getElementById('bereiding').value
-                }
+            const titel = document.getElementById('titel').value;
+            const personen = document.getElementById('personen').value;
+            const ingredienten = document.getElementById('ingredienten').value;
+            const bereiding = document.getElementById('bereiding').value;
+
+            if (!titel) {
+                alert('Vul in ieder geval een titel in!');
+                return;
+            }
+
+            const { data, error } = await db.from('recepten').insert([
+                { titel, personen, ingredienten, bereiding }
             ]);
-            if (error) alert('Fout bij opslaan: ' + error.message);
-            else { alert('Opgeslagen!'); location.reload(); }
+
+            if (error) {
+                alert('Fout bij opslaan: ' + error.message);
+            } else {
+                alert('Opgeslagen!');
+                location.reload();
+            }
         }
 
         async function fetchRecipes() {
-            const { data, error } = await supabase.from('recepten').select('*');
+            const { data, error } = await db.from('recepten').select('*').order('created_at', { ascending: false });
             const list = document.getElementById('recipe-list');
-            data.forEach(r => {
-                list.innerHTML += `<div class="card"><h2>${r.titel}</h2><p><strong>Voor:</strong> ${r.personen}</p><p>${r.bereiding}</p></div>`;
-            });
+            list.innerHTML = '';
+            
+            if (error) {
+                console.error('Fout bij ophalen:', error.message);
+                return;
+            }
+
+            if (data) {
+                data.forEach(r => {
+                    list.innerHTML += `
+                        <div class="card">
+                            <h2>${r.titel}</h2>
+                            <p><strong>Voor:</strong> ${r.personen ? r.personen : 'Onbekend'} personen</p>
+                            <p><strong>Ingrediënten:</strong><br>${r.ingredienten ? r.ingredienten.replace(/\n/g, '<br>') : ''}</p>
+                            <p><strong>Bereiding:</strong><br>${r.bereiding ? r.bereiding.replace(/\n/g, '<br>') : ''}</p>
+                        </div>`;
+                });
+            }
         }
 
         fetchRecipes();
