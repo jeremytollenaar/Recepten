@@ -11,9 +11,8 @@
     p { color: #aaa; }
 
     /* Actieve Timer Banner */
-    #timerBanner { display: none; background: #ab7c7c; color: #fff; padding: 10px; border-radius: 10px; margin-bottom: 1rem; font-weight: bold; animation: pulse 1.5s infinite; }
-    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
-
+    #timerBanner { display: none; background: #ab7c7c; color: #fff; padding: 10px; border-radius: 10px; margin-bottom: 1rem; font-weight: bold; }
+    
     /* Categorie & Alfabet Navigatie */
     .cat-nav { display: flex; justify-content: center; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
     .cat-pill { display: flex; align-items: center; background: #2d2d2d; border: 1px solid #ab7c7c; border-radius: 8px; overflow: hidden; }
@@ -65,7 +64,13 @@
   <p id="subTitle">Kies een categorie of blader door je recepten.</p>
 
   <!-- Actieve Timer Banner -->
-  <div id="timerBanner"></div>
+  <div id="timerBanner">
+    <span id="timerText"></span>
+    <div style="margin-top: 5px; display: flex; justify-content: center; gap: 5px;">
+      <button id="timerPauseBtn" onclick="togglePauseTimer()" style="background:#333; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.75rem;">Pauze</button>
+      <button onclick="stopTimer()" style="background:#d9534f; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.75rem;">Stoppen</button>
+    </div>
+  </div>
 
   <!-- Categorie Navigatie -->
   <div class="cat-nav" id="catNav"></div>
@@ -131,9 +136,11 @@
     let inTrashView = false;
     let inShoplistView = false;
 
-    // Timer variabelen
+    // Timer Variabelen
     let activeTimer = null;
     let timeLeft = 0;
+    let isPaused = false;
+    let currentRecipeName = "";
 
     async function fetchRecipes() {
       const { data, error } = await db.from('recepten').select('*');
@@ -266,24 +273,46 @@
     function startTimer(minutes, recipeName) {
       if (activeTimer) clearInterval(activeTimer);
       timeLeft = minutes * 60;
+      isPaused = false;
+      currentRecipeName = recipeName;
+      
       const banner = document.getElementById("timerBanner");
       banner.style.display = "block";
+      document.getElementById("timerPauseBtn").textContent = "Pauze";
 
-      function updateBanner() {
-        let m = Math.floor(timeLeft / 60);
-        let s = timeLeft % 60;
-        banner.textContent = `⏱️ Timer (${recipeName}): ${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-        if (timeLeft <= 0) {
-          clearInterval(activeTimer);
-          activeTimer = null;
-          banner.textContent = `⏰ Tijd is om voor: ${recipeName}!`;
-          alert(`Kookwekker afgelopen voor: ${recipeName}!`);
+      updateTimerDisplay();
+      activeTimer = setInterval(() => {
+        if (!isPaused) {
+          if (timeLeft <= 0) {
+            clearInterval(activeTimer);
+            activeTimer = null;
+            document.getElementById("timerText").textContent = `⏰ Tijd is om voor: ${currentRecipeName}!`;
+            alert(`Kookwekker afgelopen voor: ${currentRecipeName}!`);
+            return;
+          }
+          timeLeft--;
+          updateTimerDisplay();
         }
-        timeLeft--;
-      }
+      }, 1000);
+    }
 
-      updateBanner();
-      activeTimer = setInterval(updateBanner, 1000);
+    function updateTimerDisplay() {
+      let m = Math.floor(timeLeft / 60);
+      let s = timeLeft % 60;
+      document.getElementById("timerText").textContent = `⏱️ Timer (${currentRecipeName}): ${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function togglePauseTimer() {
+      isPaused = !isPaused;
+      const pauseBtn = document.getElementById("timerPauseBtn");
+      pauseBtn.textContent = isPaused ? "Hervat" : "Pauze";
+    }
+
+    function stopTimer() {
+      if (activeTimer) clearInterval(activeTimer);
+      activeTimer = null;
+      isPaused = false;
+      document.getElementById("timerBanner").style.display = "none";
     }
 
     function extractMinutes(timeStr) {
