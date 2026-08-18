@@ -120,7 +120,7 @@
   <script>
     const db = supabase.createClient('https://tnwdxmzvrmfwpwhcmkto.supabase.co', 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX');
     let recipes = [];
-    let trashRecipes = [];
+    let trashRecipes = JSON.parse(localStorage.getItem('myTrashRecipes') || '[]');
     let shoppingList = JSON.parse(localStorage.getItem('myShoplist') || '[]');
     let index = 0;
     let huidigeCategorie = "Overig";
@@ -135,13 +135,6 @@
       const { data, error } = await db.from('recepten').select('*');
       if (error) { console.error(error); return; }
       recipes = data || [];
-
-      const { data: trashData, error: trashError } = await db.from('prullenbak').select('*');
-      if (!trashError) {
-        trashRecipes = trashData || [];
-      } else {
-        trashRecipes = [];
-      }
 
       document.getElementById("toggleTrash").textContent = `🗑️ Prullenbak (${trashRecipes.length})`;
       updateShoplistCount();
@@ -398,7 +391,7 @@
         return;
       }
 
-      carousel.innerHTML = gefilterde.map((r) => {
+      carousel.innerHTML = gefilterde.map((r, localIdx) => {
         let ingList = parseIng(r.ingredienten);
         let ingHtml = ingList.map(x => `<li>${x.replace(/["\[\]]/g, '')}</li>`).join("");
         let stepsHtml = parseSteps(r.bereiding);
@@ -411,8 +404,8 @@
             <h3>Bereiding</h3>
             <div>${stepsHtml}</div>
             <div style="margin-top: 20px; display: flex; gap: 10px;">
-              <button class="restore-btn" onclick="restoreRecipe(${r.id})">Terughalen</button>
-              <button class="remove-step-btn" onclick="deletePermanent(${r.id})">Definitief wissen</button>
+              <button class="restore-btn" onclick="restoreRecipe(${localIdx})">Terughalen</button>
+              <button class="remove-step-btn" onclick="deletePermanent(${localIdx})">Definitief wissen</button>
             </div>
         </div>`;
       }).join("");
@@ -470,20 +463,11 @@
       const recipeToMove = recipes.find(r => r.id === id);
       if (!recipeToMove) return;
 
-      const { error: insertError } = await db.from('prullenbak').insert([{
-        titel: recipeToMove.titel,
-        categorie: recipeToMove.categorie,
-        tijd: recipeToMove.tijd,
-        moeilijkheid: recipeToMove.moeilijkheid,
-        ingredienten: recipeToMove.ingredienten,
-        bereiding: recipeToMove.bereiding
-      }]);
+      // Voeg toe aan lokale prullenbak
+      trashRecipes.push(recipeToMove);
+      localStorage.setItem('myTrashRecipes', JSON.stringify(trashRecipes));
 
-      if (insertError) {
-        alert("Fout bij verplaatsen naar prullenbak: " + insertError.message);
-        return;
-      }
-
+      // Verwijder uit Supabase
       const { error: deleteError } = await db.from('recepten').delete().eq('id', id);
       if (deleteError) {
         alert("Fout bij opschonen: " + deleteError.message);
@@ -493,38 +477,31 @@
       fetchRecipes();
     }
 
-    async function restoreRecipe(id) {
-      const recipeToRestore = trashRecipes.find(r => r.id === id);
+    async function restoreRecipe(localIdx) {
+      const recipeToRestore = trashRecipes[localIdx];
       if (!recipeToRestore) return;
 
-      const { error: insertError } = await db.from('recepten').insert([{
-        titel: recipeToRestore.titel,
-        categorie: recipeToRestore.categorie,
-        tijd: recipeToRestore.tijd,
-        moeilijkheid: recipeToRestore.moeilijkheid,
-        ingredienten: recipeToRestore.ingredienten,
-        bereiding: recipeToRestore.bereiding
-      }]);
+      delete recipeToRestore.id; // Zorg dat Supabase een nieuw ID aanmaakt bij terugzetten
 
+      const { error: insertError } = await db.from('recepten').insert([recipeToRestore]);
       if (insertError) {
         alert("Fout bij terugzetten: " + insertError.message);
         return;
       }
 
-      const { error: deleteError } = await db.from('prullenbak').delete().eq('id', id);
-      if (deleteError) {
-        alert("Fout bij opschonen prullenbak: " + deleteError.message);
-        return;
-      }
+      // Verwijder uit lokale prullenbak
+      trashRecipes.splice(localIdx, 1);
+      localStorage.setItem('myTrashRecipes', JSON.stringify(trashRecipes));
 
       fetchRecipes();
     }
 
-    async function deletePermanent(id) {
+    function deletePermanent(localIdx) {
       if (!confirm("Wil je dit recept definitief wissen? Dit kan niet ongedaan worden gemaakt.")) return;
-      const { error } = await db.from('prullenbak').delete().eq('id', id);
-      if (error) alert("Fout: " + error.message);
-      else fetchRecipes();
+      trashRecipes.splice(localIdx, 1);
+      localStorage.setItem('myTrashRecipes', JSON.stringify(trashRecipes));
+      renderApp();
+      document.getElementById("toggleTrash").textContent = `🗑️ Prullenbak (${trashRecipes.length})`;
     }
 
     function renderAlphabetNav(gefilterde) {
@@ -587,7 +564,6 @@
       const form = document.getElementById("addForm");
       if(inShoplistView) { inShoplistView = false; document.getElementById("shoplistView").classList.remove("show"); }
       
-      // Reset formulier voor nieuw recept
       document.getElementById("formTitle").textContent = "Nieuw recept";
       document.getElementById("editRecipeId").value = "";
       document.getElementById("newTitle").value = "";
@@ -616,11 +592,9 @@
       document.getElementById("newTime").value = recipe.tijd || "";
       document.getElementById("newDifficulty").value = recipe.moeilijkheid || "";
 
-      // Ingrediënten vullen
       let ingList = parseIng(recipe.ingredienten);
       document.getElementById("newIngredients").value = ingList.join("\n");
 
-      // Stappen vullen
       const container = document.getElementById("stepsInputContainer");
       container.innerHTML = "";
       
@@ -675,11 +649,9 @@
 
       let error;
       if (editId) {
-        // Update bestaand recept
         const res = await db.from('recepten').update(payload).eq('id', editId);
         error = res.error;
       } else {
-        // Nieuw recept invoegen
         const res = await db.from('recepten').insert([payload]);
         error = res.error;
       }
