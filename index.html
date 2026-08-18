@@ -10,10 +10,8 @@
     h1 { color: #fff; margin-bottom: 5px; }
     p { color: #aaa; }
 
-    /* Actieve Timer Banner */
     #timerBanner { display: none; background: #ab7c7c; color: #fff; padding: 10px; border-radius: 10px; margin-bottom: 1rem; font-weight: bold; }
     
-    /* Categorie & Alfabet Navigatie */
     .cat-nav { display: flex; justify-content: center; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
     .cat-pill { display: flex; align-items: center; background: #2d2d2d; border: 1px solid #ab7c7c; border-radius: 8px; overflow: hidden; }
     .cat-pill.active { background: #ab7c7c; }
@@ -28,7 +26,6 @@
 
     #search { width: 100%; max-width: 400px; padding: 12px; border-radius: 10px; border: 1px solid #444; background: #2d2d2d; color: #fff; margin-bottom: 1rem; box-sizing: border-box; }
 
-    /* Recept Kaart & Stappen */
     .carousel { max-width: 600px; margin: 0 auto; }
     .recipe { display: none; background: #2d2d2d; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.4); text-align: left; margin-bottom: 1rem; }
     .recipe.active { display: block; }
@@ -41,7 +38,6 @@
     .step-title-display { font-weight: bold; color: #fff; }
     .step-list { margin: 0; padding-left: 1.2rem; color: #ccc; line-height: 1.5; }
 
-    /* Knoppen & Formulier */
     .nav-btn, .save-recipe-btn, .add-step-btn, .remove-step-btn, .restore-btn, .timer-btn, .edit-btn, #toggleAdd, #toggleTrash, #toggleShoplist { background: #ab7c7c; color: #fff; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; margin: 5px; }
     .timer-btn { background: #4a7c59; padding: 4px 8px; font-size: 0.8rem; margin-left: 8px; }
     .edit-btn { background: #f0ad4e; }
@@ -53,7 +49,6 @@
     input, textarea { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #444; background: #363636; color: #fff; box-sizing: border-box; }
     .step-input-group { background: #363636; border: 1px solid #444; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
     
-    /* Boodschappenlijst item styling */
     .shop-item { display: flex; align-items: center; gap: 10px; background: #363636; padding: 8px 12px; border-radius: 6px; margin-bottom: 6px; }
     .shop-item input[type="checkbox"] { width: 20px; height: 20px; margin: 0; cursor: pointer; }
   </style>
@@ -63,7 +58,6 @@
   <h1>Receptenboek</h1>
   <p id="subTitle">Kies een categorie of blader door je recepten.</p>
 
-  <!-- Actieve Timer Banner -->
   <div id="timerBanner">
     <span id="timerText"></span>
     <div style="margin-top: 5px; display: flex; justify-content: center; gap: 5px;">
@@ -72,12 +66,10 @@
     </div>
   </div>
 
-  <!-- Categorie Navigatie -->
   <div class="cat-nav" id="catNav"></div>
 
   <input type="text" id="search" placeholder="Zoek op titel, ingrediënt of categorie..." oninput="renderApp()">
 
-  <!-- Alfabet navigatie -->
   <div class="alphabet-nav" id="alphabetNav"></div>
 
   <div style="margin-bottom: 1.5rem;">
@@ -86,7 +78,6 @@
     <button id="toggleTrash" onclick="toggleTrashView()">🗑️ Prullenbak (0)</button>
   </div>
 
-  <!-- Boodschappenlijst Scherm -->
   <div id="shoplistView">
     <h2>Boodschappenlijst</h2>
     <div id="shoplistIngredientsContainer" style="margin-bottom: 15px;"></div>
@@ -95,7 +86,6 @@
     <button class="remove-step-btn" onclick="clearShoplist()" style="width:100%">Lijst leegmaken</button>
   </div>
 
-  <!-- Formulier (Toevoegen & Bewerken) -->
   <div id="addForm">
     <h2 id="formTitle">Nieuw recept</h2>
     <input type="hidden" id="editRecipeId" value="">
@@ -123,7 +113,7 @@
   </div>
 
   <script>
-    // --- 1. ALLE VARIABELEN STAAN HIER DIRECT BOVENAAN ---
+    // --- 1. GLOBALE VARIABELEN EN SUPABASE CONFIGURATIE (ALTIJD BOVENAAN) ---
     let recipes = [];
     let trashRecipes = JSON.parse(localStorage.getItem('myTrashRecipes') || '[]');
     let shoppingList = JSON.parse(localStorage.getItem('myShoplist') || '[]');
@@ -137,12 +127,27 @@
     let isPaused = false;
     let currentRecipeName = "";
 
-    // --- 2. SUPABASE INITIALISATIE ---
     const supabaseUrl = 'https://tnwdxmzvrmfwpwhcmkto.supabase.co';
     const supabaseKey = 'sb_publishable_XSvvA17awR2CAX-Xd-sfkQ_H-OVZ_sX';
-    const db = supabase.createClient(supabaseUrl, supabaseKey);
+    
+    // Controleer of supabase correct is geladen om fouten te voorkomen
+    let db = null;
+    try {
+      if (window.supabase && typeof window.supabase.createClient === 'function') {
+        db = window.supabase.createClient(supabaseUrl, supabaseKey);
+      } else {
+        console.error("Supabase bibliotheek niet correct geladen.");
+      }
+    } catch (err) {
+      console.error("Fout bij initialiseren Supabase client:", err);
+    }
 
+    // --- 2. DATA OPHALEN ---
     async function fetchRecipes() {
+      if (!db) {
+        alert("Kan geen verbinding maken met de database (Supabase ontbreekt).");
+        return;
+      }
       const { data, error } = await db.from('recepten').select('*');
       if (error) { 
         console.error("Fout bij ophalen:", error); 
@@ -155,6 +160,7 @@
       renderApp();
     }
 
+    // --- 3. UI RENDER FUNCTIE ---
     function renderApp() {
       const searchTerm = document.getElementById("search").value.toLowerCase().trim();
       const catNavElement = document.getElementById("catNav");
@@ -269,7 +275,7 @@
       counter.textContent = `Recept ${index + 1} van ${gefilterde.length}`;
     }
 
-    // Timer Functionaliteit
+    // --- 4. TIMER LOGICA ---
     function startTimer(minutes, recipeName) {
       if (activeTimer) clearInterval(activeTimer);
       timeLeft = minutes * 60;
@@ -322,7 +328,7 @@
       return !isNaN(pureNum) ? pureNum : 0;
     }
 
-    // Boodschappenlijst Functionaliteit
+    // --- 5. BOODSCHAPPENLIJST & PRULLENBAK ---
     function openShoplistModal(encodedJson) {
       inShoplistView = true;
       document.getElementById("toggleShoplist").textContent = "← Terug naar recepten";
@@ -447,6 +453,7 @@
       }).join("");
     }
 
+    // --- 6. HULPFUNCTIES VOOR PARSEN ---
     function parseIng(ingData) {
       if (typeof ingData === 'string') {
           try { return JSON.parse(ingData); } catch(e) { return ingData.split('\n'); }
@@ -493,6 +500,7 @@
       }).join("");
     }
 
+    // --- 7. DATABASE ACTIES ---
     async function moveToTrash(id) {
       if (!confirm("Weet je zeker dat je dit recept naar de prullenbak wilt verplaatsen?")) return;
       
@@ -713,6 +721,7 @@
       renderApp();
     };
 
+    // --- 8. INITIALE START ---
     fetchRecipes();
   </script>
 </body>
